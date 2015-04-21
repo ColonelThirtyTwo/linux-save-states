@@ -35,8 +35,13 @@ int main(string[] args) {
 	}
 
 	auto saveStatesFile = new SaveStatesFile("savestates.db");
-
 	auto proc = new ProcessInfo(pid);
+
+	if(!proc.isStopped()) {
+		stderr.writefln("PID %d is not stopped. Aborting.", pid);
+		return 2;
+	}
+
 	saveStatesFile.createState(label, proc.getMaps());
 
 

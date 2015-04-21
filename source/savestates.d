@@ -74,14 +74,22 @@ private struct Statement {
 	}
 }
 
-class SaveStatesFile {
+/**
+ * Save state file reader and writer.
+ * 
+ * Save state files are SQLite 3 databases.
+ */
+final class SaveStatesFile {
 	public sqlite3* db;
 	
 	this(string filepath) {
 		enforce(sqlite3_open(filepath.toStringz, &db) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
 		enforce(sqlite3_exec(db, import("schema.sql").toStringz(), null, null, null) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
 	}
-	
+
+	/**
+	 * Creates a new save state with the given label and memory maps.
+	 */
 	void createState(MemoryMapRange)(string label, MemoryMapRange memoryMaps)
 	if(isInputRange!MemoryMapRange && is(ElementType!MemoryMapRange : const(MemoryMap))) {
 		Statement(db, `BEGIN TRANSACTION;`).step();
@@ -129,7 +137,10 @@ class SaveStatesFile {
 		}
 
 	}
-	
+
+	/**
+	 * Closes the save states file.
+	 */
 	void close() {
 		enforce(sqlite3_close(db) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
 	}
