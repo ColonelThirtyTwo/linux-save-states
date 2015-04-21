@@ -1,0 +1,10 @@
+{
+	"name": "linux-save-state",
+	"description": "A minimal D application.",
+	"copyright": "Copyright © 2015, col",
+	"authors": ["col"],
+	"libs": ["sqlite3"],
+	"stringImportPaths": ["./resources/"],
+	"dependencies": {
+	}
+}
