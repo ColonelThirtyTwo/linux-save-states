@@ -138,6 +138,17 @@ final class SaveStatesFile {
 
 	}
 
+	/// Returns a range of all savestate labels in chronological order.
+	string[] listStates() {
+		auto stateNames = new string[0];
+
+		auto stmt = Statement(db, `SELECT label FROM SaveStates ORDER BY rowid;`);
+		while(stmt.step())
+			stateNames ~= sqlite3_column_text(stmt, 0).fromStringz().idup;
+
+		return stateNames;
+	}
+
 	/**
 	 * Closes the save states file.
 	 */

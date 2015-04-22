@@ -4,7 +4,7 @@ PRAGMA foreign_keys = ON;
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS SaveStates (
-	rowid INTEGER PRIMARY KEY,
+	rowid INTEGER PRIMARY KEY AUTOINCREMENT, -- rowid is used to order, so make it monotonically increasing
 	label TEXT UNIQUE
 );
 
