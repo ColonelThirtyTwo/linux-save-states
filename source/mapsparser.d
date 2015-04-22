@@ -40,13 +40,18 @@ struct MemoryMap {
 
 /// Memory mapped file.
 struct MemoryMapFile {
+	/// File path.
 	string fileName;
+	/// Offset in bytes.
 	ulong fileOffset;
 }
 
 /// Anonymous memory map.
 struct MemoryMapAnon {
-	/// Memory contents, compressed with zlib.
+	/// Name of the map, if any, as reported by /proc/pid/maps. Ex. [stack], [heap]
+	string mapName;
+
+	/// Memory contents, compressed with zlib
 	const(ubyte)[] contents;
 }
 
@@ -113,7 +118,7 @@ final class ProcessInfo {
 			auto compressedContents = cast(const(ubyte)[])  compressor.compress(buffer);
 			compressedContents ~= cast(const(ubyte)[]) compressor.flush();
 			
-			mapDef.target = MemoryMapAnon(compressedContents);
+			mapDef.target = MemoryMapAnon(match[5], compressedContents);
 			return Nullable!MemoryMap(mapDef);
 		} else if(match[5][0] == '/') {
 			mapDef.target = MemoryMapFile(match[5], match[4].to!ulong(16));

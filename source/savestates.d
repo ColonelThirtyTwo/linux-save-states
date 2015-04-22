@@ -126,9 +126,9 @@ final class SaveStatesFile {
 				stmt.bind(9, cast(long) mapContents.fileOffset);
 				stmt.bind(10, null);
 			} else {
-				stmt.bind(8, null);
-				stmt.bind(9, null);
 				auto mapContents = mapEntry.target.peek!MemoryMapAnon;
+				stmt.bind(8, mapContents.mapName);
+				stmt.bind(9, null);
 				stmt.bind(10, mapContents.contents);
 			}
 
