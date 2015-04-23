@@ -5,8 +5,11 @@ import std.exception : enforce;
 import std.range;
 import etc.c.sqlite3;
 
+import d2sqlite3;
+
 import mapsparser;
 
+/+
 private struct Statement {
 	sqlite3* db;
 	sqlite3_stmt* stmt;
@@ -73,6 +76,7 @@ private struct Statement {
 		enforce(sqlite3_finalize(stmt) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
 	}
 }
++/
 
 /**
  * Save state file reader and writer.
@@ -80,11 +84,11 @@ private struct Statement {
  * Save state files are SQLite 3 databases.
  */
 final class SaveStatesFile {
-	public sqlite3* db;
+	public Database db;
 	
 	this(string filepath) {
-		enforce(sqlite3_open(filepath.toStringz, &db) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
-		enforce(sqlite3_exec(db, import("schema.sql").toStringz(), null, null, null) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
+		db = Database(filepath);
+		db.execute(import("schema.sql"));
 	}
 
 	/**
@@ -92,18 +96,18 @@ final class SaveStatesFile {
 	 */
 	void createState(MemoryMapRange)(string label, MemoryMapRange memoryMaps)
 	if(isInputRange!MemoryMapRange && is(ElementType!MemoryMapRange : const(MemoryMap))) {
-		Statement(db, `BEGIN TRANSACTION;`).step();
-		scope(success) Statement(db, `COMMIT TRANSACTION;`).step();
-		scope(failure) if(!sqlite3_get_autocommit(db)) Statement(db, `ROLLBACK TRANSACTION;`).step();
+		db.begin();
+		scope(success) db.commit();
+		scope(failure) if(!sqlite3_get_autocommit(db.handle)) db.rollback();
 		
 		assert(label.length <= int.max);
-		auto stmt = Statement(db, `INSERT INTO SaveStates(label) VALUES (?);`);
+		auto stmt = db.prepare(`INSERT INTO SaveStates(label) VALUES (?);`);
 		stmt.bind(1, label);
-		stmt.step();
+		stmt.execute();
 
-		const saveStateID = sqlite3_last_insert_rowid(db);
+		const saveStateID = db.lastInsertRowid;
 
-		stmt = Statement(db, `INSERT INTO MemoryMappings
+		stmt = db.prepare(`INSERT INTO MemoryMappings
 			(saveState, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset, contents) VALUES
 			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`);
 		foreach(MemoryMap mapEntry; memoryMaps) {
@@ -132,27 +136,21 @@ final class SaveStatesFile {
 				stmt.bind(10, mapContents.contents);
 			}
 
-			stmt.step();
+			stmt.execute();
 			stmt.reset();
 		}
-
 	}
 
 	/// Returns a range of all savestate labels in chronological order.
-	string[] listStates() {
-		auto stateNames = new string[0];
-
-		auto stmt = Statement(db, `SELECT label FROM SaveStates ORDER BY rowid;`);
-		while(stmt.step())
-			stateNames ~= sqlite3_column_text(stmt, 0).fromStringz().idup;
-
-		return stateNames;
+	auto listStates() {
+		auto stmt = db.prepare(`SELECT label FROM SaveStates ORDER BY rowid;`);
+		return stmt.execute().map!(x => x[0]);
 	}
 
 	/**
 	 * Closes the save states file.
 	 */
 	void close() {
-		enforce(sqlite3_close(db) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
+		db.close();
 	}
 }

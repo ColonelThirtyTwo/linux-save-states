@@ -6,5 +6,6 @@
 	"libs": ["sqlite3"],
 	"stringImportPaths": ["./resources/"],
 	"dependencies": {
+		"d2sqlite3": "~>0.7.1",
 	}
 }
