@@ -9,74 +9,9 @@ import d2sqlite3;
 
 import mapsparser;
 
-/+
-private struct Statement {
-	sqlite3* db;
-	sqlite3_stmt* stmt;
-	alias stmt this;
-	
-	this(sqlite3* db, string query) {
-		assert(query.length <= int.max);
-		this.db = db;
-		check(sqlite3_prepare_v2(db, query.ptr, cast(int)query.length, &stmt, null));
-	}
-
-	private void check(int code) {
-		enforce(code == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
-	}
-	
-	bool step() {
-		auto v = sqlite3_step(stmt);
-		if(v == SQLITE_ROW)
-			return true;
-		else if(v == SQLITE_DONE)
-			return false;
-		else
-			enforce(false, sqlite3_errmsg(db).fromStringz());
-		assert(false);
-	}
-
-	void reset() {
-		check(sqlite3_reset(stmt));
-	}
-
-	void bind(uint slot, typeof(null) val) {
-		check(sqlite3_bind_null(stmt, slot));
-	}
-
-	void bind(uint slot, scope string val) {
-		if(val is null) {
-			check(sqlite3_bind_null(stmt, slot));
-			return;
-		}
-
-		assert(val.length < int.max);
-		check(sqlite3_bind_text(stmt, slot, val.ptr, cast(int)val.length, SQLITE_TRANSIENT));
-	}
-
-	void bind(uint slot, long val) {
-		check(sqlite3_bind_int64(stmt, slot, val));
-	}
-
-	void bind(uint slot, scope const(ubyte)[] val) {
-		if(val is null) {
-			check(sqlite3_bind_null(stmt, slot));
-			return;
-		}
-
-		assert(val.length < int.max);
-		check(sqlite3_bind_blob(stmt, slot, val.ptr, cast(int)val.length, SQLITE_TRANSIENT));
-	}
-
-	void bind(uint slot, bool val) {
-		check(sqlite3_bind_int(stmt, slot, val ? 1 : 0));
-	}
-	
-	~this() {
-		enforce(sqlite3_finalize(stmt) == SQLITE_OK, sqlite3_errmsg(db).fromStringz());
-	}
+bool isAutoCommit(ref Database db) {
+	return sqlite3_get_autocommit(db.handle) != 0;
 }
-+/
 
 /**
  * Save state file reader and writer.
@@ -88,7 +23,7 @@ final class SaveStatesFile {
 	
 	this(string filepath) {
 		db = Database(filepath);
-		db.execute(import("schema.sql"));
+		db.run(import("schema.sql"));
 	}
 
 	/**
@@ -98,7 +33,7 @@ final class SaveStatesFile {
 	if(isInputRange!MemoryMapRange && is(ElementType!MemoryMapRange : const(MemoryMap))) {
 		db.begin();
 		scope(success) db.commit();
-		scope(failure) if(!sqlite3_get_autocommit(db.handle)) db.rollback();
+		scope(failure) if(!db.isAutoCommit) db.rollback();
 		
 		assert(label.length <= int.max);
 		auto stmt = db.prepare(`INSERT INTO SaveStates(label) VALUES (?);`);
