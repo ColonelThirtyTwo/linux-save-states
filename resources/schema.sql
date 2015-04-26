@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS MemoryMappings (
 	
 	contents BLOB,
 	
-	CHECK(endptr >= startptr)
+	CHECK(endptr >= startptr),
+	CHECK((fileName IS NULL AND fileOffset IS NULL) OR (fileName IS NOT NULL AND fileOffset IS NOT NULL))
 );
 
 COMMIT;

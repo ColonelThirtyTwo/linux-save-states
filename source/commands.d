@@ -133,35 +133,25 @@ int cmd_show_state(string[] args) {
 	}
 
 	writeln("Save state "~args[0]~" (id: "~results.front.peek!ulong(0).to!string~")");
-
-	// Find maps
-	stmt = saveStatesFile.db.prepare(`
-		SELECT MemoryMappings.rowid, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset
-		FROM SaveStates
-		INNER JOIN MemoryMappings ON SaveStates.rowid = MemoryMappings.saveState
-		WHERE label = ?;
-	`);
-	stmt.bind(1, args[0]);
-	results = stmt.execute();
 	
 	writeln("Memory Maps:");
-	writeln("ID   | start addr     | end addr       | perm | name                                     | offset");
-	writeln("-----|----------------|----------------|------|------------------------------------------|-------");
+	writeln("ID   | start addr     | end addr       | perm | name                                               | offset");
+	writeln("-----|----------------|----------------|------|----------------------------------------------------|-------");
 	
-	foreach(row; results) {
+	foreach(map; saveStatesFile.getMaps(args[0], false)) {
 		writeln(
 			only(
-				leftJustify(row.peek!ulong(0).to!string, 4),
-				leftJustify("0x"~row.peek!ulong(1).to!string(16), 14),
-				leftJustify("0x"~row.peek!ulong(2).to!string(16), 14),
+				leftJustify(map.id.to!string, 4),
+				leftJustify("0x"~map.begin.to!string(16), 14),
+				leftJustify("0x"~map.end.to!string(16), 14),
 				only(
-					row.peek!bool(3) ? "r" : "-",
-					row.peek!bool(4) ? "w" : "-",
-					row.peek!bool(5) ? "x" : "-",
-					row.peek!bool(6) ? "p" : "s",
+					(map.flags & MemoryMapFlags.READ) ? "r" : "-",
+					(map.flags & MemoryMapFlags.WRITE) ? "w" : "-",
+					(map.flags & MemoryMapFlags.EXEC) ? "x" : "-",
+					(map.flags & MemoryMapFlags.PRIVATE) ? "p" : "s",
 				).join,
-				leftJustify(row.columnType(7) != SqliteType.NULL ? row.peek!string(7) : "", 40),
-				row.columnType(8) != SqliteType.NULL ? row.peek!ulong(8).to!string(16) : "n/a",
+				leftJustify(map.name, 50),
+				map.offset.to!string,
 			).join(" | ")
 		);
 	}
@@ -192,13 +182,12 @@ int cmd_dump_map(string[] args) {
 		return 1;
 	}
 	
-	auto target = map.target.peek!MemoryMapAnon;
-	if(target is null) {
-		stderr.writeln("Not an anonymous map");
+	if(!map.contents) {
+		stderr.writeln("No map contents to dump");
 		return 1;
 	}
 	
-	stdout.rawWrite(target.uncompressedContents);
+	stdout.rawWrite(map.contents);
 	
 	return 0;
 }
@@ -232,21 +221,13 @@ int cmd_replace_map(string[] args) {
 	}
 	assert(map.id == id);
 	
-	auto target = map.target.peek!MemoryMapAnon;
-	if(target is null) {
-		stderr.writeln("Not an anonymous map");
+	auto newContents = stdin.byChunk(4096).join();
+	if(newContents.length != map.end - map.begin) {
+		stderr.writeln("New contents must be the same length as the map size.");
+		stderr.writefln("Old size: %s, new size: %s", newContents.length.to!string, (map.end-map.begin).to!string);
 		return 1;
 	}
-	
-	auto uncompressedContents = stdin.byChunk(4096).join();
-	if(uncompressedContents.length != map.end - map.begin) {
-		stderr.writeln("New contents must be the same length as the old contents");
-		stderr.writefln("Old size: %s, new size: %s", uncompressedContents.length.to!string, (map.end-map.begin).to!string);
-		return 1;
-	}
-	
-	auto newContents = cast(const(ubyte)[]) compress(uncompressedContents, 9);
-	target.contents = newContents;
+	map.contents = newContents;
 	
 	saveStatesFile.updateMap(map);
 	
@@ -278,14 +259,53 @@ int cmd_load_map(string[] args) {
 		return 1;
 	}
 	
-	if(map.target.peek!MemoryMapAnon is null) {
-		stderr.writeln("Not an anonymous map");
+	if(!map.contents) {
+		stderr.writeln("Map does not contain contents to load");
 		return 1;
 	}
 	
 	auto proc = new ProcessInfo(pid);
 	scope(exit) proc.close();
 	proc.writeMapContents(map);
+	
+	return 0;
+}
+
+@("<state label> <pid>")
+@(`Loads a state into the specified process.`)
+int cmd_load(string[] args) {
+	mixin(ARG_HELP!cmd_load);
+	mixin(ARG_NUM_REQUIRED!(cmd_load, 2));
+	
+	uint pid;
+	try {
+		pid = args[1].to!uint;
+	} catch(ConvException ex) {
+		stderr.writeln("Invalid ID");
+		return 1;
+	}
+
+	auto saveStatesFile = new SaveStatesFile("savestates.db");
+	scope(exit) saveStatesFile.close();
+	
+	saveStatesFile.db.begin();
+	scope(success) saveStatesFile.db.commit();
+	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
+	
+	auto stmt = saveStatesFile.db.prepare(`SELECT rowid FROM SaveStates WHERE label = ?`);
+	stmt.bind(1, args[0]);
+	auto results = stmt.execute();
+	if(results.empty) {
+		stderr.writeln("No such label: "~args[0]);
+		return 2;
+	}
+	
+	auto proc = new ProcessInfo(pid);
+	scope(exit) proc.close();
+	
+	foreach(map; saveStatesFile.getMaps(args[0])) {
+		proc.writeMapContents(map);
+	}
 	
 	return 0;
 }

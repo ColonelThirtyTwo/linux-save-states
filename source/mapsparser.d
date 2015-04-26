@@ -28,41 +28,21 @@ struct MemoryMap {
 	/// End address
 	ulong end;
 	/// Permissions
-	BitFlags!MemoryMapFlags flags;
+	uint flags;
+	//BitFlags!MemoryMapFlags flags;
 	
-	/// Map contents. Either a reference to a file or a compressed copy of the map.
-	Algebraic!(MemoryMapFile, MemoryMapAnon) target;
+	/// Memory map name. It may be a file path, or a label like [heap], [stack].
+	string name;
+	
+	/// File offset of the memory map. Meaningless for an anonymous map.
+	ulong offset;
+	
+	/// For private or anonymous maps, the map contents. If the length is zero, the contents were not stored.
+	const(ubyte)[] contents;
 	
 	invariant {
 		assert(end >= begin);
-	}
-}
-
-/// Memory mapped file.
-struct MemoryMapFile {
-	/// File path.
-	string fileName;
-	/// Offset in bytes.
-	ulong fileOffset;
-}
-
-/// Anonymous memory map.
-struct MemoryMapAnon {
-	/// Name of the map, if any, as reported by /proc/pid/maps. Ex. [stack], [heap]
-	string mapName;
-	
-	/// Memory contents, compressed with zlib
-	const(ubyte)[] contents;
-	
-	/// Returns the decompressed memory contents
-	const(ubyte)[] uncompressedContents() @property {
-		// TODO: uncompress can't take a const array, but doesn't modify it, so we cast away const
-		return cast(ubyte[]) uncompress(cast(ubyte[]) this.contents);
-	}
-	
-	/// Compresses a byte buffer and assigns it to contents
-	void uncompressedContents(const(ubyte)[] newContents) @property {
-		this.contents = cast(const(ubyte)[]) compress(newContents, 9);
+		assert(!contents || contents.length == (end - begin));
 	}
 }
 
@@ -98,82 +78,40 @@ final class ProcessInfo {
 		this.pid = pid;
 	}
 	
-	/// Reads memory maps from /proc/ without loading them.
-	/// Returns a tuple of a MemoryMap without a target, a string filename, and a ulong file offset.
-	private Tuple!(MemoryMap, string, ulong) parseMapsLine(string line) {
+	/// Reads memory maps from /proc/.
+	/// The memory maps will not have their contents field set.
+	private MemoryMap parseMapsLine(string line) {
 		auto match = matchFirst(line, mapsLineRE);
 		enforce(match, "Couldn't parse maps line: "~line);
 		
-		MemoryMap mapDef;
-		mapDef.begin = match[1].to!ulong(16);
-		mapDef.end = match[2].to!ulong(16);
+		MemoryMap map;
+		map.begin = match[1].to!ulong(16);
+		map.end = match[2].to!ulong(16);
 		
 		auto perms = match[3];
 		assert(perms.length == 4);
 		if(perms[0] == 'r')
-			mapDef.flags |= MemoryMapFlags.READ;
+			map.flags |= MemoryMapFlags.READ;
 		if(perms[1] == 'w')
-			mapDef.flags |= MemoryMapFlags.WRITE;
+			map.flags |= MemoryMapFlags.WRITE;
 		if(perms[2] == 'x')
-			mapDef.flags |= MemoryMapFlags.EXEC;
+			map.flags |= MemoryMapFlags.EXEC;
 		if(perms[3] == 'p')
-			mapDef.flags |= MemoryMapFlags.PRIVATE;
+			map.flags |= MemoryMapFlags.PRIVATE;
 		
-		return tuple(mapDef, match[5], match[4].to!ulong(16));
-		/*
-		// TODO: private file maps should be copied rather than referred
-		if(match[5] == "" || match[5] == "[stack]" || match[5] == "[heap]") {
-			assert(match[4].to!ulong(16) == 0);
-
-			mem.seek(mapDef.begin);
-			auto buffer = new ubyte[mapDef.end - mapDef.begin];
-			mem.rawRead(buffer);
-
-			auto compressor = new Compress(6);
-			auto compressedContents = cast(const(ubyte)[])  compressor.compress(buffer);
-			compressedContents ~= cast(const(ubyte)[]) compressor.flush();
-			
-			mapDef.target = MemoryMapAnon(match[5], compressedContents);
-			return Nullable!MemoryMap(mapDef);
-		} else if(match[5][0] == '/') {
-			mapDef.target = MemoryMapFile(match[5], match[4].to!ulong(16));
-			return Nullable!MemoryMap(mapDef);
-		} else {
-			// TODO: handling [vdso] or other special maps
-			return Nullable!MemoryMap();
-		}
-		*/
+		map.name = match[5];
+		map.offset = match[4].to!ulong(16);
+		
+		return map;
 	}
 	
-	/// Loads a parsed MemoryMap. Returns false if the map cannot be loaded.
-	private Nullable!MemoryMap loadMap(MemoryMap mapDef, string fileName, ulong fileOffset) {
-		if(fileName == "" || fileName == "[stack]" || fileName == "[heap]") {
-			mem.seek(mapDef.begin);
-			auto buffer = new ubyte[mapDef.end - mapDef.begin];
-			mem.rawRead(buffer);
-			
-			MemoryMapAnon target;
-			target.mapName = fileName;
-			target.uncompressedContents = buffer;
-			mapDef.target = target;
-			
-		} else if(fileName[0] == '/') {
-			mapDef.target = MemoryMapFile(fileName, fileOffset);
-		} else {
-			return Nullable!MemoryMap();
-		}
-		return Nullable!MemoryMap(mapDef);
+	private void loadMapContents(ref MemoryMap mapDef) {
+		mem.seek(mapDef.begin);
+		auto buf = new ubyte[mapDef.end - mapDef.begin];
+		mem.rawRead(buf);
+		mapDef.contents = buf;
 	}
-
-	bool isStopped() {
-		auto stat = File("/proc/"~to!string(pid)~"/stat");
-		auto line = stat.readln();
-		auto match = line.matchFirst(statRE);
-		assert(match);
-		
-		return match[1] == "T";
-	}
-
+	
 	/**
 	 * Returns a range of MemoryMaps read from the process.
 	 * 
@@ -183,9 +121,24 @@ final class ProcessInfo {
 		auto file = File("/proc/"~to!string(pid)~"/maps");
 		return file.byLineCopy()
 			.map!(line => this.parseMapsLine(line))
-			.map!(tup => this.loadMap(tup.expand))
-			.filter!(map => !map.isNull)
-			.map!(map => map.get);
+			.filter!(map =>
+				(map.flags & (MemoryMapFlags.WRITE | MemoryMapFlags.PRIVATE)) ==
+				(MemoryMapFlags.WRITE | MemoryMapFlags.PRIVATE)
+			)
+			.map!(delegate(MemoryMap map) {
+				this.loadMapContents(map);
+				return map;
+			});
+	}
+	
+	/// Checks if the process is stopped.
+	bool isStopped() {
+		auto stat = File("/proc/"~to!string(pid)~"/stat");
+		auto line = stat.readln();
+		auto match = line.matchFirst(statRE);
+		assert(match);
+		
+		return match[1] == "T";
 	}
 	
 	/**
@@ -195,10 +148,10 @@ final class ProcessInfo {
 	 */
 	void writeMapContents(MemoryMap map)
 	in {
-		assert(map.target.peek!MemoryMapAnon !is null);
+		assert(map.contents);
 	} body {
 		mem.seek(map.begin);
-		mem.rawWrite(map.target.peek!MemoryMapAnon.uncompressedContents);
+		mem.rawWrite(map.contents);
 	}
 
 	/// Releases resources used by the process info.

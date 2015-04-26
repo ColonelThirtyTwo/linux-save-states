@@ -30,16 +30,15 @@ int main(string[] args) {
 		return 0;
 	}
 
-	switch(args[1]) {
+	final switch(args[1]) {
 		foreach(member; __traits(allMembers, cmds)) {
 			static if(member.startsWith("cmd_")) {
 				case cmds.CommandName!member:
 					return __traits(getMember, cmds, member)(args[2..$]);
 			}
-		}
-		default:
-			stderr.writeln(USAGE);
-			stderr.writeln("No such command: "~args[1]);
-			return 1;
+		}	
 	}
+	stderr.writeln(USAGE);
+	stderr.writeln("No such command: "~args[1]);
+	return 1;
 }

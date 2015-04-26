@@ -5,6 +5,7 @@ import std.exception : enforce;
 import std.range;
 import std.algorithm;
 import std.typecons;
+import std.zlib;
 
 import d2sqlite3;
 
@@ -40,9 +41,9 @@ final class SaveStatesFile {
 		auto stmt = db.prepare(`INSERT INTO SaveStates(label) VALUES (?);`);
 		stmt.bind(1, label);
 		stmt.execute();
-
+		
 		const saveStateID = db.lastInsertRowid;
-
+		
 		stmt = db.prepare(`
 			INSERT INTO MemoryMappings
 			(saveState, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset, contents) VALUES
@@ -54,8 +55,6 @@ final class SaveStatesFile {
 			assert(mapEntry.begin <= long.max);
 			assert(mapEntry.end <= long.max);
 			
-			assert(mapEntry.target.hasValue);
-			
 			stmt.bind(1, saveStateID);
 			stmt.bind(2, mapEntry.begin);
 			stmt.bind(3, mapEntry.end);
@@ -63,19 +62,12 @@ final class SaveStatesFile {
 			stmt.bind(5, !!(mapEntry.flags & MemoryMapFlags.WRITE));
 			stmt.bind(6, !!(mapEntry.flags & MemoryMapFlags.EXEC));
 			stmt.bind(7, !!(mapEntry.flags & MemoryMapFlags.PRIVATE));
-			
-			if(mapEntry.target.peek!MemoryMapFile !is null) {
-				auto mapContents = mapEntry.target.peek!MemoryMapFile;
-				stmt.bind(8, mapContents.fileName);
-				assert(mapContents.fileOffset <= long.max);
-				stmt.bind(9, cast(long) mapContents.fileOffset);
+			stmt.bind(8, mapEntry.name);
+			stmt.bind(9, mapEntry.offset);
+			if(mapEntry.contents)
+				stmt.bind(10, cast(const(ubyte)[]) compress(mapEntry.contents, 9));
+			else
 				stmt.bind(10, null);
-			} else {
-				auto mapContents = mapEntry.target.peek!MemoryMapAnon;
-				stmt.bind(8, mapContents.mapName);
-				stmt.bind(9, null);
-				stmt.bind(10, mapContents.contents);
-			}
 			
 			stmt.execute();
 			stmt.reset();
@@ -86,6 +78,39 @@ final class SaveStatesFile {
 	auto listStates() {
 		auto stmt = db.prepare(`SELECT label FROM SaveStates ORDER BY rowid;`);
 		return stmt.execute().map!(x => x[0]);
+	}
+	
+	/// Returns a range of MemoryMaps for the specified save state
+	auto getMaps(string saveStateLabel, bool withContents=true) {
+		auto stmt = db.prepare(`
+			SELECT MemoryMappings.rowid, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset
+			` ~ (withContents ? `, contents ` : ``) ~ `
+			FROM SaveStates
+			INNER JOIN MemoryMappings ON SaveStates.rowid = MemoryMappings.saveState
+			WHERE label = ?;
+		`);
+		stmt.bind(1, saveStateLabel);
+		
+		return stmt.execute()
+			.map!(delegate(row) {
+				MemoryMap m = {
+					id: row.peek!ulong(0),
+					begin: row.peek!ulong(1),
+					end: row.peek!ulong(2),
+					flags:
+						(row.peek!bool(3) ? MemoryMapFlags.READ : 0) |
+						(row.peek!bool(4) ? MemoryMapFlags.WRITE : 0) |
+						(row.peek!bool(5) ? MemoryMapFlags.EXEC : 0) |
+						(row.peek!bool(6) ? MemoryMapFlags.PRIVATE : 0),
+					name: row.peek!string(7),
+					offset: row.peek!ulong(8),
+					contents: withContents ? cast(const(ubyte)[]) uncompress(
+						row.peek!(ubyte[])(9),
+						row.peek!ulong(2) - row.peek!ulong(1)
+					) : null,
+				};
+				return m;
+			});
 	}
 
 	Nullable!MemoryMap getMap(ulong id) {
@@ -110,16 +135,9 @@ final class SaveStatesFile {
 		if(row.peek!bool(6))
 			map.flags |= MemoryMapFlags.PRIVATE;
 		
-		if(row.columnType(9) == SqliteType.NULL)
-			map.target = MemoryMapFile(
-				row.peek!string(7),
-				row.peek!ulong(8),
-			);
-		else
-			map.target = MemoryMapAnon(
-				row.peek!string(7),
-				row.peek!(ubyte[])(9),
-			);
+		map.name = row.peek!string(7);
+		map.offset = row.peek!ulong(8);
+		map.contents = cast(const(ubyte)[]) uncompress(row.peek!(ubyte[])(9), map.end - map.begin);
 		
 		return Nullable!MemoryMap(map);
 	}
@@ -132,10 +150,9 @@ final class SaveStatesFile {
 	void updateMap(const ref MemoryMap map)
 	in {
 		assert(!map.id.isNull);
-		assert(map.target.peek!MemoryMapAnon !is null);
 	} body {
 		auto stmt = db.prepare(`UPDATE MemoryMappings SET contents = ? WHERE rowid = ?;`);
-		stmt.bind(1, map.target.peek!MemoryMapAnon.contents);
+		stmt.bind(1, cast(const(ubyte)[]) compress(map.contents, 9));
 		stmt.bind(2, map.id.get);
 		stmt.execute();
 		assert(db.changes == 1);
