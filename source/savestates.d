@@ -3,6 +3,7 @@
 import std.string : toStringz, fromStringz;
 import std.exception : enforce;
 import std.range;
+import std.algorithm;
 import std.typecons;
 
 import d2sqlite3;
@@ -42,13 +43,18 @@ final class SaveStatesFile {
 
 		const saveStateID = db.lastInsertRowid;
 
-		stmt = db.prepare(`INSERT INTO MemoryMappings
+		stmt = db.prepare(`
+			INSERT INTO MemoryMappings
 			(saveState, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset, contents) VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`);
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+		`);
+		
 		foreach(MemoryMap mapEntry; memoryMaps) {
 			// TODO: SQLite doesn't support unsigned 64-bit numbers.
 			assert(mapEntry.begin <= long.max);
 			assert(mapEntry.end <= long.max);
+			
+			assert(mapEntry.target.hasValue);
 			
 			stmt.bind(1, saveStateID);
 			stmt.bind(2, mapEntry.begin);

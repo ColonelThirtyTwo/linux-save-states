@@ -1,14 +1,14 @@
 module mapsparser;
 
 import std.conv : to;
-import std.typecons : BitFlags, Nullable;
+import std.typecons : BitFlags, Nullable, Tuple, tuple;
 import std.variant : Algebraic;
 import std.stdio : File, stderr;
 import std.exception : enforce;
 import std.regex;
-import std.algorithm : map, filter;
-import std.range : join;
-import std.zlib : Compress, uncompress;
+import std.algorithm;
+import std.range;
+import std.zlib;
 
 /// Memory map flags
 enum MemoryMapFlags {
@@ -35,9 +35,6 @@ struct MemoryMap {
 	
 	invariant {
 		assert(end >= begin);
-		assert(target.hasValue);
-		if(target.peek!MemoryMapAnon !is null)
-			assert(target.peek!MemoryMapAnon.contents.length == end - begin);
 	}
 }
 
@@ -61,6 +58,11 @@ struct MemoryMapAnon {
 	const(ubyte)[] uncompressedContents() @property {
 		// TODO: uncompress can't take a const array, but doesn't modify it, so we cast away const
 		return cast(ubyte[]) uncompress(cast(ubyte[]) this.contents);
+	}
+	
+	/// Compresses a byte buffer and assigns it to contents
+	void uncompressedContents(const(ubyte)[] newContents) @property {
+		this.contents = cast(const(ubyte)[]) compress(newContents, 9);
 	}
 }
 
@@ -95,8 +97,10 @@ final class ProcessInfo {
 		mem = File("/proc/"~to!string(pid)~"/mem", "r+b");
 		this.pid = pid;
 	}
-
-	private Nullable!MemoryMap parseMapsLine(string line) {
+	
+	/// Reads memory maps from /proc/ without loading them.
+	/// Returns a tuple of a MemoryMap without a target, a string filename, and a ulong file offset.
+	private Tuple!(MemoryMap, string, ulong) parseMapsLine(string line) {
 		auto match = matchFirst(line, mapsLineRE);
 		enforce(match, "Couldn't parse maps line: "~line);
 		
@@ -115,6 +119,8 @@ final class ProcessInfo {
 		if(perms[3] == 'p')
 			mapDef.flags |= MemoryMapFlags.PRIVATE;
 		
+		return tuple(mapDef, match[5], match[4].to!ulong(16));
+		/*
 		// TODO: private file maps should be copied rather than referred
 		if(match[5] == "" || match[5] == "[stack]" || match[5] == "[heap]") {
 			assert(match[4].to!ulong(16) == 0);
@@ -136,6 +142,27 @@ final class ProcessInfo {
 			// TODO: handling [vdso] or other special maps
 			return Nullable!MemoryMap();
 		}
+		*/
+	}
+	
+	/// Loads a parsed MemoryMap. Returns false if the map cannot be loaded.
+	private Nullable!MemoryMap loadMap(MemoryMap mapDef, string fileName, ulong fileOffset) {
+		if(fileName == "" || fileName == "[stack]" || fileName == "[heap]") {
+			mem.seek(mapDef.begin);
+			auto buffer = new ubyte[mapDef.end - mapDef.begin];
+			mem.rawRead(buffer);
+			
+			MemoryMapAnon target;
+			target.mapName = fileName;
+			target.uncompressedContents = buffer;
+			mapDef.target = target;
+			
+		} else if(fileName[0] == '/') {
+			mapDef.target = MemoryMapFile(fileName, fileOffset);
+		} else {
+			return Nullable!MemoryMap();
+		}
+		return Nullable!MemoryMap(mapDef);
 	}
 
 	bool isStopped() {
@@ -155,9 +182,10 @@ final class ProcessInfo {
 	auto getMaps() {
 		auto file = File("/proc/"~to!string(pid)~"/maps");
 		return file.byLineCopy()
-			.map!(x => this.parseMapsLine(x))
-			.filter!(a => !a.isNull)
-			.map!(a => a.get);
+			.map!(line => this.parseMapsLine(line))
+			.map!(tup => this.loadMap(tup.expand))
+			.filter!(map => !map.isNull)
+			.map!(map => map.get);
 	}
 	
 	/**
