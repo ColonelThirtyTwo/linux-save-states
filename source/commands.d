@@ -6,6 +6,7 @@ import std.range;
 import std.conv : to, ConvException;
 import std.format : format;
 import std.string;
+import std.zlib;
 
 import d2sqlite3;
 
@@ -141,5 +142,125 @@ Shows info about a save state (memory maps, etc.)`;
 		);
 	}
 
+	return 0;
+}
+
+int cmd_dump_map(string[] args) {
+	enum USAGE = `Usage: linux-save-state dump-map <mapid> > somefile.bin
+Writes the uncompressed contents of the specified map to stdio.`;
+	mixin(ARG_HELP);
+	mixin(ARG_NUM_REQUIRED!1);
+
+	ulong id;
+	try {
+		id = args[0].to!ulong;
+	} catch(ConvException ex) {
+		stderr.writeln("Invalid ID");
+		return 1;
+	}
+
+	auto saveStatesFile = new SaveStatesFile("savestates.db");
+	scope(exit) saveStatesFile.close();
+
+	auto map = saveStatesFile.getMap(id);
+	if(map.isNull) {
+		stderr.writeln("Map not found");
+		return 1;
+	}
+	
+	auto target = map.target.peek!MemoryMapAnon;
+	if(target is null) {
+		stderr.writeln("Not an anonymous map");
+		return 1;
+	}
+	
+	stdout.rawWrite(target.uncompressedContents);
+	
+	return 0;
+}
+
+int cmd_replace_map(string[] args) {
+	enum USAGE = `Usage: linux-save-state replace-map <mapid> < somefile.bin
+Replaces the contents of the specified memory map with stdin.`;
+	mixin(ARG_HELP);
+	mixin(ARG_NUM_REQUIRED!1);
+
+	ulong id;
+	try {
+		id = args[0].to!ulong;
+	} catch(ConvException ex) {
+		stderr.writeln("Invalid ID");
+		return 1;
+	}
+
+	auto saveStatesFile = new SaveStatesFile("savestates.db");
+	scope(exit) saveStatesFile.close();
+	
+	saveStatesFile.db.begin();
+	scope(success) saveStatesFile.db.commit();
+	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
+	
+	auto map = saveStatesFile.getMap(id);
+	if(map.isNull) {
+		stderr.writeln("Map not found");
+		return 1;
+	}
+	assert(map.id == id);
+	
+	auto target = map.target.peek!MemoryMapAnon;
+	if(target is null) {
+		stderr.writeln("Not an anonymous map");
+		return 1;
+	}
+	
+	auto uncompressedContents = stdin.byChunk(4096).join();
+	if(uncompressedContents.length != map.end - map.begin) {
+		stderr.writeln("New contents must be the same length as the old contents");
+		stderr.writefln("Old size: %s, new size: %s", uncompressedContents.length.to!string, (map.end-map.begin).to!string);
+		return 1;
+	}
+	
+	auto newContents = cast(const(ubyte)[]) compress(uncompressedContents, 9);
+	target.contents = newContents;
+	
+	saveStatesFile.updateMap(map);
+	
+	return 0;
+}
+
+int cmd_load_map(string[] args) {
+	enum USAGE = `Usage: linux-save-state load-map <mapid> <pid>
+Loads the contents of the map specified by <mapid> into the memory of the process specified by <pid>.`;
+	mixin(ARG_HELP);
+	mixin(ARG_NUM_REQUIRED!2);
+	
+	ulong mapId;
+	uint pid;
+	try {
+		mapId = args[0].to!ulong;
+		pid = args[1].to!uint;
+	} catch(ConvException ex) {
+		stderr.writeln("Invalid ID");
+		return 1;
+	}
+	
+	auto saveStatesFile = new SaveStatesFile("savestates.db");
+	scope(exit) saveStatesFile.close();
+	
+	auto map = saveStatesFile.getMap(mapId);
+	if(map.isNull) {
+		stderr.writeln("Map not found");
+		return 1;
+	}
+	
+	if(map.target.peek!MemoryMapAnon is null) {
+		stderr.writeln("Not an anonymous map");
+		return 1;
+	}
+	
+	auto proc = new ProcessInfo(pid);
+	scope(exit) proc.close();
+	proc.writeMapContents(map);
+	
 	return 0;
 }

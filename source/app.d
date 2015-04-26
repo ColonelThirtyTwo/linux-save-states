@@ -8,6 +8,9 @@ import std.range : array, replace;
 import cmds = commands;
 
 enum USAGE = `Usage: linux-save-state <command>
+A tool for saving and restoring linux processes.
+Save states are stored in a savestates.db file in the current directory.
+
 Command is one of:
 ` ~ [__traits(allMembers, cmds)]
 	.filter!(x => x.startsWith("cmd_"))

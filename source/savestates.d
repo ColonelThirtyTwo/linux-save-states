@@ -3,7 +3,7 @@
 import std.string : toStringz, fromStringz;
 import std.exception : enforce;
 import std.range;
-import etc.c.sqlite3;
+import std.typecons;
 
 import d2sqlite3;
 
@@ -49,7 +49,7 @@ final class SaveStatesFile {
 			// TODO: SQLite doesn't support unsigned 64-bit numbers.
 			assert(mapEntry.begin <= long.max);
 			assert(mapEntry.end <= long.max);
-
+			
 			stmt.bind(1, saveStateID);
 			stmt.bind(2, mapEntry.begin);
 			stmt.bind(3, mapEntry.end);
@@ -57,7 +57,7 @@ final class SaveStatesFile {
 			stmt.bind(5, !!(mapEntry.flags & MemoryMapFlags.WRITE));
 			stmt.bind(6, !!(mapEntry.flags & MemoryMapFlags.EXEC));
 			stmt.bind(7, !!(mapEntry.flags & MemoryMapFlags.PRIVATE));
-
+			
 			if(mapEntry.target.peek!MemoryMapFile !is null) {
 				auto mapContents = mapEntry.target.peek!MemoryMapFile;
 				stmt.bind(8, mapContents.fileName);
@@ -70,7 +70,7 @@ final class SaveStatesFile {
 				stmt.bind(9, null);
 				stmt.bind(10, mapContents.contents);
 			}
-
+			
 			stmt.execute();
 			stmt.reset();
 		}
@@ -80,6 +80,59 @@ final class SaveStatesFile {
 	auto listStates() {
 		auto stmt = db.prepare(`SELECT label FROM SaveStates ORDER BY rowid;`);
 		return stmt.execute().map!(x => x[0]);
+	}
+
+	Nullable!MemoryMap getMap(ulong id) {
+		auto stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE rowid = ?;`);
+		stmt.bind(1, id);
+		auto results = stmt.execute();
+		
+		if(results.empty)
+			return Nullable!MemoryMap();
+		auto row = results.front;
+		
+		MemoryMap map;
+		map.id = id;
+		map.begin = row.peek!ulong(1);
+		map.end = row.peek!ulong(2);
+		if(row.peek!bool(3))
+			map.flags |= MemoryMapFlags.READ;
+		if(row.peek!bool(4))
+			map.flags |= MemoryMapFlags.WRITE;
+		if(row.peek!bool(5))
+			map.flags |= MemoryMapFlags.EXEC;
+		if(row.peek!bool(6))
+			map.flags |= MemoryMapFlags.PRIVATE;
+		
+		if(row.columnType(9) == SqliteType.NULL)
+			map.target = MemoryMapFile(
+				row.peek!string(7),
+				row.peek!ulong(8),
+			);
+		else
+			map.target = MemoryMapAnon(
+				row.peek!string(7),
+				row.peek!(ubyte[])(9),
+			);
+		
+		return Nullable!MemoryMap(map);
+	}
+	
+	/**
+	 * Writes a modified memory map to the savefile.
+	 * TODO: Currently only updates the contents, and only works on anonymous
+	 * maps.
+	 */
+	void updateMap(const ref MemoryMap map)
+	in {
+		assert(!map.id.isNull);
+		assert(map.target.peek!MemoryMapAnon !is null);
+	} body {
+		auto stmt = db.prepare(`UPDATE MemoryMappings SET contents = ? WHERE rowid = ?;`);
+		stmt.bind(1, map.target.peek!MemoryMapAnon.contents);
+		stmt.bind(2, map.id.get);
+		stmt.execute();
+		assert(db.changes == 1);
 	}
 
 	/**

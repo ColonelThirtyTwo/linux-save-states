@@ -8,7 +8,7 @@ import std.exception : enforce;
 import std.regex;
 import std.algorithm : map, filter;
 import std.range : join;
-import std.zlib : Compress;
+import std.zlib : Compress, uncompress;
 
 /// Memory map flags
 enum MemoryMapFlags {
@@ -20,6 +20,9 @@ enum MemoryMapFlags {
 
 /// Defines a memory map.
 struct MemoryMap {
+	/// ID of the memory map. Null if the map isn't saved.
+	Nullable!(ulong, 0) id;
+	
 	/// Start address
 	ulong begin;
 	/// End address
@@ -50,9 +53,15 @@ struct MemoryMapFile {
 struct MemoryMapAnon {
 	/// Name of the map, if any, as reported by /proc/pid/maps. Ex. [stack], [heap]
 	string mapName;
-
+	
 	/// Memory contents, compressed with zlib
 	const(ubyte)[] contents;
+	
+	/// Returns the decompressed memory contents
+	const(ubyte)[] uncompressedContents() @property {
+		// TODO: uncompress can't take a const array, but doesn't modify it, so we cast away const
+		return cast(ubyte[]) uncompress(cast(ubyte[]) this.contents);
+	}
 }
 
 // //////////////////////////////////////////////////////////////////////////////////////////
@@ -83,7 +92,7 @@ final class ProcessInfo {
 	in {
 		assert(pid != 0);
 	} body {
-		mem = File("/proc/"~to!string(pid)~"/mem");
+		mem = File("/proc/"~to!string(pid)~"/mem", "r+b");
 		this.pid = pid;
 	}
 
@@ -134,7 +143,7 @@ final class ProcessInfo {
 		auto line = stat.readln();
 		auto match = line.matchFirst(statRE);
 		assert(match);
-
+		
 		return match[1] == "T";
 	}
 
@@ -149,6 +158,19 @@ final class ProcessInfo {
 			.map!(x => this.parseMapsLine(x))
 			.filter!(a => !a.isNull)
 			.map!(a => a.get);
+	}
+	
+	/**
+	 * Writes the contents of an anonymous memory map to the process' memory.
+	 *
+	 * The process must have the memory mapped and writeable.
+	 */
+	void writeMapContents(MemoryMap map)
+	in {
+		assert(map.target.peek!MemoryMapAnon !is null);
+	} body {
+		mem.seek(map.begin);
+		mem.rawWrite(map.target.peek!MemoryMapAnon.uncompressedContents);
 	}
 
 	/// Releases resources used by the process info.
