@@ -33,7 +33,7 @@ int main(string[] args) {
 	switch(args[1]) {
 		foreach(member; __traits(allMembers, cmds)) {
 			static if(member.startsWith("cmd_")) {
-				case replace(member[4..$], "_", "-"):
+				case cmds.CommandName!member:
 					return __traits(getMember, cmds, member)(args[2..$]);
 			}
 		}

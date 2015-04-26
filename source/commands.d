@@ -7,35 +7,58 @@ import std.conv : to, ConvException;
 import std.format : format;
 import std.string;
 import std.zlib;
+import std.traits;
 
 import d2sqlite3;
 
 import savestates;
 import mapsparser;
 
-/// Mixin: checks args for -h/--help, and prints USAGE if found.
-enum ARG_HELP = q{
-	if(args.canFind("--help") || args.canFind("-h")) {
-		writeln(USAGE);
-		return 0;
-	}
-};
+enum PROGNAME = "linux-save-state";
 
-/// Mixin: Prints USAGE and errors out if args does not contain exactly n elements
-template ARG_NUM_REQUIRED(uint n) {
-	enum ARG_NUM_REQUIRED = q{
-		if(args.length != %d) {
-			stderr.writeln(USAGE);
-			return 1;
-		}
-	}.format(n);
+template CommandName(alias cmd) {
+	static if(isSomeFunction!cmd)
+		enum cmdstr = __traits(identifier, cmd);
+	else
+		enum cmdstr = cmd;
+	enum CommandName = cmdstr[4..$].replace("_", "-");
 }
 
+/// Gets help text for a command
+template Help(alias cmd) {
+	enum Help = "Usage: " ~ PROGNAME ~ " " ~ CommandName!cmd ~ " " ~
+		__traits(getAttributes, cmd)[0] ~ "\n" ~
+		__traits(getAttributes, cmd)[1];
+}
+
+/// Mixin: checks args for -h/--help, and prints USAGE if found.
+template ARG_HELP(alias cmd) {
+	enum ARG_HELP = q{
+		if(args.canFind("--help") || args.canFind("-h")) {
+			writeln(`%s`);
+			return 0;
+		}
+	}.format(Help!cmd);
+}
+
+/// Mixin: Prints usage and errors out if args does not contain exactly n elements
+template ARG_NUM_REQUIRED(alias cmd, uint n) {
+	enum ARG_NUM_REQUIRED = q{
+		if(args.length != %d) {
+			stderr.writeln(`%s`);
+			return 1;
+		}
+	}.format(n, Help!cmd);
+}
+
+// //////////////////////////////////////////////////////////////////////////
+
+@("")
+@(`Creates the savestate file.
+Useful to create the file as a normal user, then run 'save' as root.`)
 int cmd_create(string[] args) {
-	enum USAGE = `Usage: linux-save-state create
-Creates the savestates file.`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!0);
+	mixin(ARG_HELP!cmd_create);
+	mixin(ARG_NUM_REQUIRED!(cmd_create, 0));
 
 	auto saveStatesFile = new SaveStatesFile("savestates.db");
 	scope(exit) saveStatesFile.close();
@@ -43,11 +66,11 @@ Creates the savestates file.`;
 	return 0;
 }
 
+@("")
+@("Lists all stored save states in chronological order.")
 int cmd_list_states(string[] args) {
-	enum USAGE = `Usage: linux-save-state list-states
-Lists all stored save states in chronological order.`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!0);
+	mixin(ARG_HELP!cmd_list_states);
+	mixin(ARG_NUM_REQUIRED!(cmd_list_states, 0));
 
 	auto saveStatesFile = new SaveStatesFile("savestates.db");
 	scope(exit) saveStatesFile.close();
@@ -57,17 +80,18 @@ Lists all stored save states in chronological order.`;
 	return 0;
 }
 
+@("<label> <pid>")
+@("Saves the state of a process.")
 int cmd_save(string[] args) {
-	enum USAGE = `Usage: linux-save-state save <label> <pid>`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!2);
+	mixin(ARG_HELP!cmd_save);
+	mixin(ARG_NUM_REQUIRED!(cmd_save, 2));
 
 	string label = args[0];
 	uint pid;
 	try {
 		pid = to!uint(args[1]);
 	} catch(ConvException ex) {
-		stderr.writeln(USAGE);
+		stderr.writeln("Invalid ID");
 		return 1;
 	}
 	
@@ -86,11 +110,11 @@ int cmd_save(string[] args) {
 	return 0;
 }
 
+@("<label>")
+@("Shows info about a save state (memory maps, etc.)")
 int cmd_show_state(string[] args) {
-	enum USAGE = `Usage: linux-save-state show-state <label>
-Shows info about a save state (memory maps, etc.)`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!1);
+	mixin(ARG_HELP!cmd_show_state);
+	mixin(ARG_NUM_REQUIRED!(cmd_show_state, 1));
 
 	auto saveStatesFile = new SaveStatesFile("savestates.db");
 	scope(exit) saveStatesFile.close();
@@ -145,11 +169,11 @@ Shows info about a save state (memory maps, etc.)`;
 	return 0;
 }
 
+@("<mapid> > contents.bin")
+@("Writes the uncompressed contents of the specified map to stdio.")
 int cmd_dump_map(string[] args) {
-	enum USAGE = `Usage: linux-save-state dump-map <mapid> > somefile.bin
-Writes the uncompressed contents of the specified map to stdio.`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!1);
+	mixin(ARG_HELP!cmd_dump_map);
+	mixin(ARG_NUM_REQUIRED!(cmd_dump_map, 1));
 
 	ulong id;
 	try {
@@ -179,11 +203,12 @@ Writes the uncompressed contents of the specified map to stdio.`;
 	return 0;
 }
 
+@("<mapid> < somefile.bin")
+@(`Replaces the contents of the specified memory map with stdin.
+The size of the new contents must match the size of the existing contents.`)
 int cmd_replace_map(string[] args) {
-	enum USAGE = `Usage: linux-save-state replace-map <mapid> < somefile.bin
-Replaces the contents of the specified memory map with stdin.`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!1);
+	mixin(ARG_HELP!cmd_replace_map);
+	mixin(ARG_NUM_REQUIRED!(cmd_replace_map, 1));
 
 	ulong id;
 	try {
@@ -228,11 +253,11 @@ Replaces the contents of the specified memory map with stdin.`;
 	return 0;
 }
 
+@("<mapid> <pid>")
+@(`Loads the contents of the map specified by <mapid> into the memory of the process specified by <pid>.`)
 int cmd_load_map(string[] args) {
-	enum USAGE = `Usage: linux-save-state load-map <mapid> <pid>
-Loads the contents of the map specified by <mapid> into the memory of the process specified by <pid>.`;
-	mixin(ARG_HELP);
-	mixin(ARG_NUM_REQUIRED!2);
+	mixin(ARG_HELP!cmd_load_map);
+	mixin(ARG_NUM_REQUIRED!(cmd_load_map, 2));
 	
 	ulong mapId;
 	uint pid;
