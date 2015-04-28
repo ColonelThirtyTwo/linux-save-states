@@ -51,6 +51,15 @@ template ARG_NUM_REQUIRED(alias cmd, uint n) {
 	}.format(n, Help!cmd);
 }
 
+enum OPEN_SAVESTATES = q{
+	auto saveStatesFile = SaveStatesFile("savestates.db");
+	scope(exit) saveStatesFile.close();
+	
+	saveStatesFile.db.begin();
+	scope(success) saveStatesFile.db.commit();
+	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
+};
+
 // //////////////////////////////////////////////////////////////////////////
 
 @("")
@@ -60,8 +69,7 @@ int cmd_create(string[] args) {
 	mixin(ARG_HELP!cmd_create);
 	mixin(ARG_NUM_REQUIRED!(cmd_create, 0));
 
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
 
 	return 0;
 }
@@ -72,8 +80,7 @@ int cmd_list_states(string[] args) {
 	mixin(ARG_HELP!cmd_list_states);
 	mixin(ARG_NUM_REQUIRED!(cmd_list_states, 0));
 
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
 
 	foreach(label; saveStatesFile.listStates())
 		writeln(label);
@@ -95,8 +102,8 @@ int cmd_save(string[] args) {
 		return 1;
 	}
 	
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
+	
 	auto proc = new ProcessInfo(pid);
 	scope(exit) proc.close();
 	
@@ -105,7 +112,7 @@ int cmd_save(string[] args) {
 		return 2;
 	}
 	
-	saveStatesFile.createState(label, proc.getMaps());
+	saveStatesFile.writeState(proc.saveState(label));
 
 	return 0;
 }
@@ -116,29 +123,21 @@ int cmd_show_state(string[] args) {
 	mixin(ARG_HELP!cmd_show_state);
 	mixin(ARG_NUM_REQUIRED!(cmd_show_state, 1));
 
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
 	
-	saveStatesFile.db.begin();
-	scope(success) saveStatesFile.db.commit();
-	scope(failure) if(saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
-
-	// Find save state
-	auto stmt = saveStatesFile.db.prepare(`SELECT rowid FROM SaveStates WHERE label = ?`);
-	stmt.bind(1, args[0]);
-	auto results = stmt.execute();
-	if(results.empty) {
-		stderr.writeln("No such label: "~args[0]);
-		return 2;
+	auto state = saveStatesFile.loadState(args[0]);
+	if(state.isNull) {
+		stderr.writeln("No such state: "~args[0]);
+		return 1;
 	}
-
-	writeln("Save state "~args[0]~" (id: "~results.front.peek!ulong(0).to!string~")");
+	
+	writeln("Save state "~state.name~" (id: "~state.id.get.to!string~")");
 	
 	writeln("Memory Maps:");
 	writeln("ID   | start addr     | end addr       | perm | name                                               | offset");
 	writeln("-----|----------------|----------------|------|----------------------------------------------------|-------");
 	
-	foreach(map; saveStatesFile.getMaps(args[0], false)) {
+	foreach(ref map; state.maps) {
 		writeln(
 			only(
 				leftJustify(map.id.to!string, 4),
@@ -173,8 +172,7 @@ int cmd_dump_map(string[] args) {
 		return 1;
 	}
 
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
 
 	auto map = saveStatesFile.getMap(id);
 	if(map.isNull) {
@@ -207,12 +205,7 @@ int cmd_replace_map(string[] args) {
 		return 1;
 	}
 
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
-	
-	saveStatesFile.db.begin();
-	scope(success) saveStatesFile.db.commit();
-	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
+	mixin(OPEN_SAVESTATES);
 	
 	auto map = saveStatesFile.getMap(id);
 	if(map.isNull) {
@@ -250,8 +243,7 @@ int cmd_load_map(string[] args) {
 		return 1;
 	}
 	
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
 	
 	auto map = saveStatesFile.getMap(mapId);
 	if(map.isNull) {
@@ -285,27 +277,18 @@ int cmd_load(string[] args) {
 		return 1;
 	}
 
-	auto saveStatesFile = new SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
+	mixin(OPEN_SAVESTATES);
 	
-	saveStatesFile.db.begin();
-	scope(success) saveStatesFile.db.commit();
-	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
-	
-	auto stmt = saveStatesFile.db.prepare(`SELECT rowid FROM SaveStates WHERE label = ?`);
-	stmt.bind(1, args[0]);
-	auto results = stmt.execute();
-	if(results.empty) {
-		stderr.writeln("No such label: "~args[0]);
+	auto state = saveStatesFile.loadState(args[0]);
+	if(state.isNull) {
+		stderr.writeln("No such state: "~args[0]);
 		return 2;
 	}
 	
 	auto proc = new ProcessInfo(pid);
 	scope(exit) proc.close();
 	
-	foreach(map; saveStatesFile.getMaps(args[0])) {
-		proc.writeMapContents(map);
-	}
+	proc.loadState(state);
 	
 	return 0;
 }

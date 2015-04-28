@@ -18,7 +18,19 @@ enum MemoryMapFlags {
 	PRIVATE = 1 << 3,
 }
 
-/// Defines a memory map.
+/// Save state
+struct SaveState {
+	/// ID of state. Null if the state isn't saved.
+	Nullable!(ulong, 0) id;
+	
+	/// Save state name, aka label
+	string name;
+	
+	/// Saved memory maps
+	MemoryMap[] maps;
+}
+
+/// Memory map entry
 struct MemoryMap {
 	/// ID of the memory map. Null if the map isn't saved.
 	Nullable!(ulong, 0) id;
@@ -48,26 +60,13 @@ struct MemoryMap {
 
 // //////////////////////////////////////////////////////////////////////////////////////////
 
-private {
-	alias mapsLineRE = ctRegex!(
-		`^([0-9a-fA-F]+)\-([0-9a-fA-F]+)\s+` // Memory range
-		`([r\-][w\-][x\-][ps\-])\s+` // Permissions
-		`([0-9a-fA-F]+)\s+` // Offset
-		`[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\s+` // Device
-		`[0-9]+\s+` // Inode
-		`(.*)$` // Filepath (if any)
-	);
-
-	alias statRE = ctRegex!`^[^\s]+ [^\s]+ (.)`;
-}
-
 /**
  * Class for getting process information.
  */
 final class ProcessInfo {
 	private {
 		File mem;
-		uint pid;
+		immutable uint pid;
 	}
 
 	this(uint pid)
@@ -78,9 +77,36 @@ final class ProcessInfo {
 		this.pid = pid;
 	}
 	
+	/// Saves the process' state into a SaveState object.
+	SaveState saveState(string name) {
+		SaveState state;
+		state.name = name;
+		state.maps = this.getMaps().array();
+		
+		return state;
+	}
+	
+	/// Loads a state from a SaveState object to the process' state.
+	void loadState(in SaveState state) {
+		foreach(ref map; state.maps) {
+			if(map.contents) {
+				this.writeMapContents(map);
+			}
+		}
+	}
+	
 	/// Reads memory maps from /proc/.
 	/// The memory maps will not have their contents field set.
 	private MemoryMap parseMapsLine(string line) {
+		alias mapsLineRE = ctRegex!(
+			`^([0-9a-fA-F]+)\-([0-9a-fA-F]+)\s+` // Memory range
+			`([r\-][w\-][x\-][ps\-])\s+` // Permissions
+			`([0-9a-fA-F]+)\s+` // Offset
+			`[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\s+` // Device
+			`[0-9]+\s+` // Inode
+			`(.*)$` // Filepath (if any)
+		);
+		
 		auto match = matchFirst(line, mapsLineRE);
 		enforce(match, "Couldn't parse maps line: "~line);
 		
@@ -112,12 +138,7 @@ final class ProcessInfo {
 		mapDef.contents = buf;
 	}
 	
-	/**
-	 * Returns a range of MemoryMaps read from the process.
-	 * 
-	 * The ProcessInfo must not be closed when reading from the range.
-	 */
-	auto getMaps() {
+	private auto getMaps() {
 		auto file = File("/proc/"~to!string(pid)~"/maps");
 		return file.byLineCopy()
 			.map!(line => this.parseMapsLine(line))
@@ -133,6 +154,8 @@ final class ProcessInfo {
 	
 	/// Checks if the process is stopped.
 	bool isStopped() {
+		alias statRE = ctRegex!`^[^\s]+ [^\s]+ (.)`;
+		
 		auto stat = File("/proc/"~to!string(pid)~"/stat");
 		auto line = stat.readln();
 		auto match = line.matchFirst(statRE);
@@ -146,7 +169,7 @@ final class ProcessInfo {
 	 *
 	 * The process must have the memory mapped and writeable.
 	 */
-	void writeMapContents(MemoryMap map)
+	void writeMapContents(in MemoryMap map)
 	in {
 		assert(map.contents);
 	} body {

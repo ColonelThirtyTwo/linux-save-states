@@ -1,8 +1,8 @@
 {
 	"name": "linux-save-state",
-	"description": "A minimal D application.",
-	"copyright": "Copyright © 2015, col",
-	"authors": ["col"],
+	"description": "PC game TAS tools for Linux",
+	"license": "public domain",
+	"authors": ["Alex 'Colonel Thirty Two' Parrill"],
 	"libs": ["sqlite3"],
 	"stringImportPaths": ["./resources/"],
 	"dependencies": {

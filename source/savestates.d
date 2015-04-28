@@ -20,99 +20,99 @@ bool isAutoCommit(ref Database db) {
  * 
  * Save state files are SQLite 3 databases.
  */
-final class SaveStatesFile {
+struct SaveStatesFile {
 	public Database db;
 	
 	this(string filepath) {
 		db = Database(filepath);
 		db.run(import("schema.sql"));
 	}
-
+	
 	/**
-	 * Creates a new save state with the given label and memory maps.
-	 */
-	void createState(MemoryMapRange)(string label, MemoryMapRange memoryMaps)
-	if(isInputRange!MemoryMapRange && is(ElementType!MemoryMapRange : const(MemoryMap))) {
-		db.begin();
-		scope(success) db.commit();
-		scope(failure) if(!db.isAutoCommit) db.rollback();
-		
-		assert(label.length <= int.max);
-		auto stmt = db.prepare(`INSERT INTO SaveStates(label) VALUES (?);`);
-		stmt.bind(1, label);
+	 * Updates or creates a save state and associated objects.
+	 * You probably want to run this in a transaction.
+	 */ 
+	void writeState()(auto ref SaveState state) {
+		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?, ?);`);
+		stmt.bind(1, state.id);
+		stmt.bind(2, state.name);
 		stmt.execute();
 		
-		const saveStateID = db.lastInsertRowid;
+		state.id = db.lastInsertRowid;
 		
-		stmt = db.prepare(`
-			INSERT INTO MemoryMappings
-			(saveState, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset, contents) VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-		`);
+		stmt = db.prepare(`DELETE FROM MemoryMappings WHERE saveState = ?;`);
+		stmt.bind(1, state.id);
+		stmt.execute();
 		
-		foreach(MemoryMap mapEntry; memoryMaps) {
-			// TODO: SQLite doesn't support unsigned 64-bit numbers.
-			assert(mapEntry.begin <= long.max);
-			assert(mapEntry.end <= long.max);
-			
-			stmt.bind(1, saveStateID);
-			stmt.bind(2, mapEntry.begin);
-			stmt.bind(3, mapEntry.end);
-			stmt.bind(4, !!(mapEntry.flags & MemoryMapFlags.READ));
-			stmt.bind(5, !!(mapEntry.flags & MemoryMapFlags.WRITE));
-			stmt.bind(6, !!(mapEntry.flags & MemoryMapFlags.EXEC));
-			stmt.bind(7, !!(mapEntry.flags & MemoryMapFlags.PRIVATE));
-			stmt.bind(8, mapEntry.name);
-			stmt.bind(9, mapEntry.offset);
-			if(mapEntry.contents)
-				stmt.bind(10, cast(const(ubyte)[]) compress(mapEntry.contents, 9));
+		stmt = db.prepare(`INSERT INTO MemoryMappings VALUES (?,?,?,?,?,?,?,?,?,?,?);`);
+		foreach(ref map; state.maps) {
+			stmt.bind(1, map.id);
+			stmt.bind(2, state.id.get);
+			stmt.bind(3, map.begin);
+			stmt.bind(4, map.end);
+			stmt.bind(5, !!(map.flags & MemoryMapFlags.READ));
+			stmt.bind(6, !!(map.flags & MemoryMapFlags.WRITE));
+			stmt.bind(7, !!(map.flags & MemoryMapFlags.EXEC));
+			stmt.bind(8, !!(map.flags & MemoryMapFlags.PRIVATE));
+			stmt.bind(9, map.name);
+			stmt.bind(10, map.offset);
+			if(map.contents)
+				stmt.bind(11, cast(const(ubyte)[]) compress(map.contents, 9));
 			else
-				stmt.bind(10, null);
+				stmt.bind(11, null);
 			
 			stmt.execute();
 			stmt.reset();
 		}
 	}
-
-	/// Returns a range of all savestate labels in chronological order.
+	
+	/// Returns a range of state labels in chronological order.
 	auto listStates() {
 		auto stmt = db.prepare(`SELECT label FROM SaveStates ORDER BY rowid;`);
 		return stmt.execute().map!(x => x[0]);
 	}
 	
-	/// Returns a range of MemoryMaps for the specified save state
-	auto getMaps(string saveStateLabel, bool withContents=true) {
-		auto stmt = db.prepare(`
-			SELECT MemoryMappings.rowid, startPtr, endPtr, readMode, writeMode, execMode, privateMode, fileName, fileOffset
-			` ~ (withContents ? `, contents ` : ``) ~ `
-			FROM SaveStates
-			INNER JOIN MemoryMappings ON SaveStates.rowid = MemoryMappings.saveState
-			WHERE label = ?;
-		`);
-		stmt.bind(1, saveStateLabel);
+	/// Loads a state by its name. Returns null if not found.
+	Nullable!SaveState loadState(string name) {
+		auto stmt = db.prepare(`SELECT * FROM SaveStates WHERE label = ?;`);
+		stmt.bind(1, name);
+		auto results = stmt.execute();
 		
-		return stmt.execute()
-			.map!(delegate(row) {
-				MemoryMap m = {
-					id: row.peek!ulong(0),
-					begin: row.peek!ulong(1),
-					end: row.peek!ulong(2),
-					flags:
-						(row.peek!bool(3) ? MemoryMapFlags.READ : 0) |
-						(row.peek!bool(4) ? MemoryMapFlags.WRITE : 0) |
-						(row.peek!bool(5) ? MemoryMapFlags.EXEC : 0) |
-						(row.peek!bool(6) ? MemoryMapFlags.PRIVATE : 0),
-					name: row.peek!string(7),
-					offset: row.peek!ulong(8),
-					contents: withContents ? cast(const(ubyte)[]) uncompress(
-						row.peek!(ubyte[])(9),
-						row.peek!ulong(2) - row.peek!ulong(1)
-					) : null,
-				};
-				return m;
-			});
+		if(results.empty)
+			return Nullable!SaveState();
+		
+		SaveState state = {
+			id: results.front.peek!ulong(0),
+			name: results.front.peek!string(1),
+		};
+		
+		stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);
+		stmt.bind(1, state.id.get);
+		results = stmt.execute();
+		foreach(row; results) {
+			MemoryMap map = {
+				id: row.peek!ulong(0),
+				begin: row.peek!ulong(2),
+				end: row.peek!ulong(3),
+				flags:
+					(row.peek!bool(4) ? MemoryMapFlags.READ : 0) |
+					(row.peek!bool(5) ? MemoryMapFlags.WRITE : 0) |
+					(row.peek!bool(6) ? MemoryMapFlags.EXEC : 0) |
+					(row.peek!bool(7) ? MemoryMapFlags.PRIVATE : 0),
+				name: row.peek!string(8),
+				offset: row.peek!ulong(9),
+				contents: cast(const(ubyte)[]) uncompress(
+					row.peek!(ubyte[])(10),
+					row.peek!ulong(3) - row.peek!ulong(2)
+				),
+			};
+			state.maps ~= map;
+		}
+		
+		return Nullable!SaveState(state);
 	}
-
+	
+	/// Loads one map from the database
 	Nullable!MemoryMap getMap(ulong id) {
 		auto stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE rowid = ?;`);
 		stmt.bind(1, id);
@@ -122,23 +122,22 @@ final class SaveStatesFile {
 			return Nullable!MemoryMap();
 		auto row = results.front;
 		
-		MemoryMap map;
-		map.id = id;
-		map.begin = row.peek!ulong(1);
-		map.end = row.peek!ulong(2);
-		if(row.peek!bool(3))
-			map.flags |= MemoryMapFlags.READ;
-		if(row.peek!bool(4))
-			map.flags |= MemoryMapFlags.WRITE;
-		if(row.peek!bool(5))
-			map.flags |= MemoryMapFlags.EXEC;
-		if(row.peek!bool(6))
-			map.flags |= MemoryMapFlags.PRIVATE;
-		
-		map.name = row.peek!string(7);
-		map.offset = row.peek!ulong(8);
-		map.contents = cast(const(ubyte)[]) uncompress(row.peek!(ubyte[])(9), map.end - map.begin);
-		
+		MemoryMap map = {
+			id: row.peek!ulong(0),
+			begin: row.peek!ulong(2),
+			end: row.peek!ulong(3),
+			flags:
+				(row.peek!bool(4) ? MemoryMapFlags.READ : 0) |
+				(row.peek!bool(5) ? MemoryMapFlags.WRITE : 0) |
+				(row.peek!bool(6) ? MemoryMapFlags.EXEC : 0) |
+				(row.peek!bool(7) ? MemoryMapFlags.PRIVATE : 0),
+			name: row.peek!string(8),
+			offset: row.peek!ulong(9),
+			contents: cast(const(ubyte)[]) uncompress(
+				row.peek!(ubyte[])(10),
+				row.peek!ulong(3) - row.peek!ulong(2)
+			),
+		};
 		return Nullable!MemoryMap(map);
 	}
 	
