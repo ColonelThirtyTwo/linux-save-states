@@ -11,8 +11,9 @@ import std.traits;
 
 import d2sqlite3;
 
-import savestates;
-import mapsparser;
+import models;
+import procinfo;
+import savefile;
 
 enum PROGNAME = "linux-save-state";
 

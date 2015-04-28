@@ -1,4 +1,4 @@
-﻿module savestates;
+﻿module savefile;
 
 import std.string : toStringz, fromStringz;
 import std.exception : enforce;
@@ -9,7 +9,7 @@ import std.zlib;
 
 import d2sqlite3;
 
-import mapsparser;
+import models;
 
 bool isAutoCommit(ref Database db) {
 	return sqlite3_get_autocommit(db.handle) != 0;
