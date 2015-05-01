@@ -1,5 +1,8 @@
+module models;
 
 import std.typecons : Nullable;
+
+public import procinfo.tracer : Registers;
 
 /// Save state
 struct SaveState {
@@ -11,6 +14,9 @@ struct SaveState {
 	
 	/// Saved memory maps
 	MemoryMap[] maps;
+	
+	/// Saved registers
+	Registers registers;
 }
 
 /// Memory map flags

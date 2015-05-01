@@ -29,26 +29,25 @@ struct ProcInfo {
 		return tracer.pid;
 	}
 	
-	/// Saves the process state. The process should be stopped during this.
+	/// Saves the process state.
+	/// The process should be in a ptrace-stop.
 	SaveState saveState(string name) {
 		SaveState state = {
 			name: name,
 			maps: memory.getMaps().array(),
+			registers: tracer.getRegisters(),
 		};
 		return state;
 	}
 	
 	/// Loads a state from a SaveState object to the process' state.
+	/// The process should be in a ptrace-stop.
 	void loadState(in SaveState state) {
 		foreach(ref map; state.maps) {
 			if(map.contents.ptr != null)
 				memory.writeMapContents(map);
 		}
-	}
-	
-	/// Checks if the process is stopped with SIGSTOP.
-	bool isStopped() {
-		return procinfo.isStopped(this.pid);
+		tracer.setRegisters(state.registers);
 	}
 	
 	invariant {

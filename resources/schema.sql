@@ -5,7 +5,8 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS SaveStates (
 	rowid INTEGER PRIMARY KEY AUTOINCREMENT, -- rowid is used to order, so make it monotonically increasing
 	label TEXT NOT NULL UNIQUE,
-	registers BLOB
+	
+	registers BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS MemoryMappings (

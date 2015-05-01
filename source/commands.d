@@ -317,7 +317,6 @@ int cmd_execute(string[] args) {
 	
 	while(true) {
 		int status = proc.tracer.wait();
-		writeln(status.to!string(16));
 		
 		if(WIFEXITED(status))
 			return WEXITSTATUS(status);

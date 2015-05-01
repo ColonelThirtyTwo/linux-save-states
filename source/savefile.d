@@ -33,9 +33,10 @@ struct SaveStatesFile {
 	 * You probably want to run this in a transaction.
 	 */ 
 	void writeState()(auto ref SaveState state) {
-		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?, ?);`);
+		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?, ?, ?);`);
 		stmt.bind(1, state.id);
 		stmt.bind(2, state.name);
+		stmt.bind(3, cast(ubyte[]) (&state.registers));
 		stmt.execute();
 		
 		state.id = db.lastInsertRowid;
@@ -81,9 +82,13 @@ struct SaveStatesFile {
 		if(results.empty)
 			return Nullable!SaveState();
 		
+		ubyte[] registersBytes = results.front.peek!(ubyte[])(2);
+		enforce(registersBytes.length == Registers.sizeof, "Saved registers do not match the current architecture.");
+		
 		SaveState state = {
 			id: results.front.peek!ulong(0),
 			name: results.front.peek!string(1),
+			registers: *(cast(Registers*) registersBytes),
 		};
 		
 		stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);
