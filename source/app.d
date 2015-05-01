@@ -1,22 +1,35 @@
 
 import std.stdio;
-import core.sys.posix.unistd;
 import std.conv : to, ConvException;
-import std.algorithm : canFind, startsWith, joiner, filter, map;
-import std.range : array, replace;
+import std.algorithm;
+import std.range;
+import std.typecons;
 
+import commands : CommandName;
+import cmds_savefile = commands.savefile;
+import cmds_execute = commands.execute;
 import cmds = commands;
+
+template StaticTuple(E...) { alias StaticTuple = E; }
+
+// Grab all functions in the commands module that start with `cmd_` and
+// generate commands for them.
+alias AllCommandMembers = StaticTuple!(
+	__traits(allMembers, cmds_savefile),
+	__traits(allMembers, cmds_execute),
+);
 
 enum USAGE = `Usage: linux-save-state <command>
 A tool for saving and restoring linux processes.
 Save states are stored in a savestates.db file in the current directory.
 
 Command is one of:
-` ~ [__traits(allMembers, cmds)]
+` ~ [AllCommandMembers]
 	.filter!(x => x.startsWith("cmd_"))
+	.array().sort()
 	.map!(x => "* " ~ replace(x[4..$], "_", "-"))
 	.joiner("\n")
-	.array;
+	.array();
 
 int main(string[] args) {
 
@@ -31,9 +44,9 @@ int main(string[] args) {
 	}
 	
 	switch(args[1]) {
-		foreach(member; __traits(allMembers, cmds)) {
+		foreach(member; AllCommandMembers) {
 			static if(member.startsWith("cmd_")) {
-				case cmds.CommandName!member:
+				case CommandName!member:
 					return __traits(getMember, cmds, member)(args[2..$]);
 			}
 		}

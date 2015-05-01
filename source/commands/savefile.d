@@ -1,72 +1,20 @@
-﻿module commands;
+module commands.savefile;
 
 import std.stdio;
 import std.algorithm;
 import std.range;
 import std.conv : to, ConvException;
-import std.format : format;
 import std.string;
-import std.zlib;
-import std.traits;
 
 import d2sqlite3;
 
 import models;
+import commands;
 import savefile;
 import procinfo;
-import procinfo.memory;
-
-enum PROGNAME = "linux-save-state";
-
-template CommandName(alias cmd) {
-	static if(isSomeFunction!cmd)
-		enum cmdstr = __traits(identifier, cmd);
-	else
-		enum cmdstr = cmd;
-	enum CommandName = cmdstr[4..$].replace("_", "-");
-}
-
-/// Gets help text for a command
-template Help(alias cmd) {
-	enum Help = "Usage: " ~ PROGNAME ~ " " ~ CommandName!cmd ~ " " ~
-		__traits(getAttributes, cmd)[0] ~ "\n" ~
-		__traits(getAttributes, cmd)[1];
-}
-
-/// Mixin: checks args for -h/--help, and prints USAGE if found.
-template ARG_HELP(alias cmd) {
-	enum ARG_HELP = q{
-		if(args.canFind("--help") || args.canFind("-h")) {
-			writeln(`%s`);
-			return 0;
-		}
-	}.format(Help!cmd);
-}
-
-/// Mixin: Prints usage and errors out if args does not contain exactly n elements
-template ARG_NUM_REQUIRED(alias cmd, uint n) {
-	enum ARG_NUM_REQUIRED = q{
-		if(args.length != %d) {
-			stderr.writeln(`%s`);
-			return 1;
-		}
-	}.format(n, Help!cmd);
-}
-
-enum OPEN_SAVESTATES = q{
-	auto saveStatesFile = SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
-	
-	saveStatesFile.db.begin();
-	scope(success) saveStatesFile.db.commit();
-	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
-};
-
-// //////////////////////////////////////////////////////////////////////////
 
 @("")
-@(`Creates the savestate file.
-Useful to create the file as a normal user, then run 'save' as root.`)
+@(`Creates an empty savestate file.`)
 int cmd_create(string[] args) {
 	mixin(ARG_HELP!cmd_create);
 	mixin(ARG_NUM_REQUIRED!(cmd_create, 0));
@@ -89,38 +37,6 @@ int cmd_list_states(string[] args) {
 	return 0;
 }
 
-/+
-@("<label> <pid>")
-@("Saves the state of a process.")
-int cmd_save(string[] args) {
-	mixin(ARG_HELP!cmd_save);
-	mixin(ARG_NUM_REQUIRED!(cmd_save, 2));
-
-	string label = args[0];
-	uint pid;
-	try {
-		pid = to!uint(args[1]);
-	} catch(ConvException ex) {
-		stderr.writeln("Invalid ID");
-		return 1;
-	}
-	
-	mixin(OPEN_SAVESTATES);
-	
-	auto proc = ProcMemory(pid);
-	
-	if(!isStopped(pid)) {
-		stderr.writefln("PID %d is not stopped. Aborting.", pid);
-		return 2;
-	}
-	
-	
-	
-	saveStatesFile.writeState(proc.saveState(label));
-
-	return 0;
-}
-+/
 
 @("<label>")
 @("Shows info about a save state (memory maps, etc.)")
@@ -267,87 +183,3 @@ int cmd_load_map(string[] args) {
 	return 0;
 }
 
-/+
-@("<state label> <pid>")
-@(`Loads a state into the specified process.`)
-int cmd_load(string[] args) {
-	mixin(ARG_HELP!cmd_load);
-	mixin(ARG_NUM_REQUIRED!(cmd_load, 2));
-	
-	uint pid;
-	try {
-		pid = args[1].to!uint;
-	} catch(ConvException ex) {
-		stderr.writeln("Invalid ID");
-		return 1;
-	}
-
-	mixin(OPEN_SAVESTATES);
-	
-	auto state = saveStatesFile.loadState(args[0]);
-	if(state.isNull) {
-		stderr.writeln("No such state: "~args[0]);
-		return 2;
-	}
-	
-	auto proc = ProcessInfo(pid);
-	
-	proc.loadState(state);
-	
-	return 0;
-}
-+/
-
-@("<proc> [args...]")
-@(`Executes a process in an environment suitable for TASing.`)
-int cmd_execute(string[] args) {
-	import std.c.linux.linux;
-	import syscalls;
-	
-	if(args.length == 0) {
-		stderr.writeln(Help!cmd_execute);
-		return 1;
-	}
-	if(args[0] == "--help" || args[0] == "-h") {
-		writeln(Help!cmd_execute);
-		return 0;
-	}
-	
-	auto proc = spawn(args);
-	proc.tracer.resume();
-	
-	bool inSyscall = false;
-	
-	while(true) {
-		int status = proc.tracer.wait();
-		
-		if(WIFEXITED(status))
-			return WEXITSTATUS(status);
-		if(WIFSIGNALED(status))
-			return 2;
-		
-		if(!WIFSTOPPED(status)) {
-			proc.tracer.resume();
-			continue;
-		}
-		
-		if(WSTOPSIG(status) == SIGTRAP) {
-			writeln("Got SIGTRAP");
-			stdout.write("Press enter to continue.");
-			readln();
-			proc.tracer.resume();
-		} else if(WSTOPSIG(status) == (SIGTRAP | 0x80)) {
-			if(inSyscall)
-				inSyscall = false;
-			else {
-				writeln("Syscall: ", proc.tracer.getSyscall().to!string);
-				inSyscall = true;
-			}
-			proc.tracer.resume();
-		} else {
-			proc.tracer.resume(WSTOPSIG(status));
-		}
-	}
-	
-	assert(false);
-}
