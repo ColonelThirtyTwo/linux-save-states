@@ -1,52 +1,25 @@
-module procinfo;
+module procinfo.memory;
 
 import std.conv : to;
 import std.typecons : BitFlags, Nullable, Tuple, tuple;
 import std.variant : Algebraic;
 import std.stdio : File, stderr;
-import std.exception : enforce;
+import std.exception : enforce, errnoEnforce;
 import std.regex;
 import std.algorithm;
 import std.range;
-import std.zlib;
+import std.c.linux.linux : pid_t;
 
 import models;
 
-// //////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Class for getting process information.
- */
-final class ProcessInfo {
-	private {
-		File mem;
-		immutable uint pid;
-	}
-
-	this(uint pid)
-	in {
-		assert(pid != 0);
-	} body {
-		mem = File("/proc/"~to!string(pid)~"/mem", "r+b");
+/// Structure for reading a process' memory from /proc/[pid]/mem.
+struct ProcMemory {
+	immutable pid_t pid;
+	private File mem;
+	
+	this(pid_t pid) {
 		this.pid = pid;
-	}
-	
-	/// Saves the process' state into a SaveState object.
-	SaveState saveState(string name) {
-		SaveState state;
-		state.name = name;
-		state.maps = this.getMaps().array();
-		
-		return state;
-	}
-	
-	/// Loads a state from a SaveState object to the process' state.
-	void loadState(in SaveState state) {
-		foreach(ref map; state.maps) {
-			if(map.contents) {
-				this.writeMapContents(map);
-			}
-		}
+		this.mem = File("/proc/"~to!string(pid)~"/mem", "r+b");
 	}
 	
 	/// Reads memory maps from /proc/.
@@ -85,6 +58,7 @@ final class ProcessInfo {
 		return map;
 	}
 	
+	/// Loads the contents of the memory map.
 	private void loadMapContents(ref MemoryMap mapDef) {
 		mem.seek(mapDef.begin);
 		auto buf = new ubyte[mapDef.end - mapDef.begin];
@@ -92,7 +66,9 @@ final class ProcessInfo {
 		mapDef.contents = buf;
 	}
 	
-	private auto getMaps() {
+	/// Returns a range of maps to save, with their contents loaded.
+	/// The process should be stopped while this happens, to prevent race conditions.
+	auto getMaps() {
 		auto file = File("/proc/"~to!string(pid)~"/maps");
 		return file.byLineCopy()
 			.map!(line => this.parseMapsLine(line))
@@ -104,18 +80,6 @@ final class ProcessInfo {
 				this.loadMapContents(map);
 				return map;
 			});
-	}
-	
-	/// Checks if the process is stopped.
-	bool isStopped() {
-		alias statRE = ctRegex!`^[^\s]+ [^\s]+ (.)`;
-		
-		auto stat = File("/proc/"~to!string(pid)~"/stat");
-		auto line = stat.readln();
-		auto match = line.matchFirst(statRE);
-		assert(match);
-		
-		return match[1] == "T";
 	}
 	
 	/**
@@ -130,9 +94,5 @@ final class ProcessInfo {
 		mem.seek(map.begin);
 		mem.rawWrite(map.contents);
 	}
-
-	/// Releases resources used by the process info.
-	void close() {
-		mem.close();
-	}
 }
+

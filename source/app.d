@@ -29,7 +29,7 @@ int main(string[] args) {
 		writeln(USAGE);
 		return 0;
 	}
-
+	
 	switch(args[1]) {
 		foreach(member; __traits(allMembers, cmds)) {
 			static if(member.startsWith("cmd_")) {

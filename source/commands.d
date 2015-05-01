@@ -12,8 +12,9 @@ import std.traits;
 import d2sqlite3;
 
 import models;
-import procinfo;
 import savefile;
+import procinfo;
+import procinfo.memory;
 
 enum PROGNAME = "linux-save-state";
 
@@ -88,6 +89,7 @@ int cmd_list_states(string[] args) {
 	return 0;
 }
 
+/+
 @("<label> <pid>")
 @("Saves the state of a process.")
 int cmd_save(string[] args) {
@@ -105,18 +107,20 @@ int cmd_save(string[] args) {
 	
 	mixin(OPEN_SAVESTATES);
 	
-	auto proc = new ProcessInfo(pid);
-	scope(exit) proc.close();
+	auto proc = ProcMemory(pid);
 	
-	if(!proc.isStopped()) {
+	if(!isStopped(pid)) {
 		stderr.writefln("PID %d is not stopped. Aborting.", pid);
 		return 2;
 	}
+	
+	
 	
 	saveStatesFile.writeState(proc.saveState(label));
 
 	return 0;
 }
++/
 
 @("<label>")
 @("Shows info about a save state (memory maps, etc.)")
@@ -257,13 +261,13 @@ int cmd_load_map(string[] args) {
 		return 1;
 	}
 	
-	auto proc = new ProcessInfo(pid);
-	scope(exit) proc.close();
+	auto proc = ProcMemory(pid);
 	proc.writeMapContents(map);
 	
 	return 0;
 }
 
+/+
 @("<state label> <pid>")
 @(`Loads a state into the specified process.`)
 int cmd_load(string[] args) {
@@ -286,10 +290,58 @@ int cmd_load(string[] args) {
 		return 2;
 	}
 	
-	auto proc = new ProcessInfo(pid);
-	scope(exit) proc.close();
+	auto proc = ProcessInfo(pid);
 	
 	proc.loadState(state);
 	
 	return 0;
+}
++/
+
+@("<proc> [args...]")
+@(`Executes a process in an environment suitable for TASing.`)
+int cmd_execute(string[] args) {
+	import std.c.linux.linux;
+	
+	if(args.length == 0) {
+		stderr.writeln(Help!cmd_execute);
+		return 1;
+	}
+	if(args[0] == "--help" || args[0] == "-h") {
+		writeln(Help!cmd_execute);
+		return 0;
+	}
+	
+	auto proc = spawn(args);
+	proc.tracer.resume();
+	
+	while(true) {
+		int status = proc.tracer.wait();
+		writeln(status.to!string(16));
+		
+		if(WIFEXITED(status))
+			return WEXITSTATUS(status);
+		if(WIFSIGNALED(status))
+			return 2;
+		
+		if(!WIFSTOPPED(status)) {
+			proc.tracer.resume();
+			continue;
+		}
+		
+		if(WSTOPSIG(status) == SIGTRAP)
+			writeln("Got SIGTRAP");
+		else if(WSTOPSIG(status) == (SIGTRAP | 0x80))
+			writeln("Got syscall");
+		else {
+			proc.tracer.resume();
+			continue;
+		}
+		
+		stdout.write("Press enter to continue.");
+		readln();
+		proc.tracer.resume();
+	}
+	
+	assert(false);
 }

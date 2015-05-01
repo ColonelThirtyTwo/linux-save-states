@@ -1,11 +1,11 @@
 PRAGMA foreign_keys = ON;
--- All BLOBs are compressed with zlib unless otherwise noted.
 
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS SaveStates (
 	rowid INTEGER PRIMARY KEY AUTOINCREMENT, -- rowid is used to order, so make it monotonically increasing
-	label TEXT UNIQUE
+	label TEXT NOT NULL UNIQUE,
+	registers BLOB
 );
 
 CREATE TABLE IF NOT EXISTS MemoryMappings (
@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS MemoryMappings (
 	fileName TEXT,
 	fileOffset INT,
 	
+	-- compressed with zlib
 	contents BLOB,
 	
 	CHECK(endptr >= startptr),
