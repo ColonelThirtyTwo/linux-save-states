@@ -302,6 +302,7 @@ int cmd_load(string[] args) {
 @(`Executes a process in an environment suitable for TASing.`)
 int cmd_execute(string[] args) {
 	import std.c.linux.linux;
+	import syscalls;
 	
 	if(args.length == 0) {
 		stderr.writeln(Help!cmd_execute);
@@ -314,6 +315,8 @@ int cmd_execute(string[] args) {
 	
 	auto proc = spawn(args);
 	proc.tracer.resume();
+	
+	bool inSyscall = false;
 	
 	while(true) {
 		int status = proc.tracer.wait();
@@ -328,18 +331,22 @@ int cmd_execute(string[] args) {
 			continue;
 		}
 		
-		if(WSTOPSIG(status) == SIGTRAP)
+		if(WSTOPSIG(status) == SIGTRAP) {
 			writeln("Got SIGTRAP");
-		else if(WSTOPSIG(status) == (SIGTRAP | 0x80))
-			writeln("Got syscall");
-		else {
+			stdout.write("Press enter to continue.");
+			readln();
 			proc.tracer.resume();
-			continue;
+		} else if(WSTOPSIG(status) == (SIGTRAP | 0x80)) {
+			if(inSyscall)
+				inSyscall = false;
+			else {
+				writeln("Syscall: ", proc.tracer.getSyscall().to!string);
+				inSyscall = true;
+			}
+			proc.tracer.resume();
+		} else {
+			proc.tracer.resume(WSTOPSIG(status));
 		}
-		
-		stdout.write("Press enter to continue.");
-		readln();
-		proc.tracer.resume();
 	}
 	
 	assert(false);

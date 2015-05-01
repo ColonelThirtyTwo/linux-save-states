@@ -4,6 +4,7 @@
 *.o
 *.obj
 *.dll
+*.so
 /savestates.db
 /stop-self
 /linux-save-state

@@ -5,6 +5,7 @@ import std.exception : errnoEnforce;
 import std.c.linux.linux;
 import std.process : execvp;
 import core.stdc.config : c_ulong, c_long;
+import syscalls;
 
 /// Spawns a process in an environment suitable for TASing and traces it.
 /// The process will start paused.
@@ -73,20 +74,20 @@ struct ProcTracer {
 	/// Continues a process in a ptrace stop.
 	/// If `untilSyscall` is true, then the process will continue until the next system call (PTRACE_SYSCALL),
 	/// otherwise it will continue until it receives a signal or other condition (PTRACE_CONT).
-	void resume(bool untilSyscall=true) {
+	void resume(uint signal=0, bool untilSyscall=true) {
 		errnoEnforce(ptrace(untilSyscall ? PTraceRequest.PTRACE_SYSCALL : PTraceRequest.PTRACE_CONT,
-			pid, null, null) != -1);
+			pid, null, cast(void*) signal) != -1);
 	}
 	
 	/// Peeks at the process' registers for the system call that the process is executing.
 	/// The process must be in a ptrace-stop.
-	c_ulong getSyscall() {
+	SysCall getSyscall() {
 		user_regs_struct regs;
 		errnoEnforce(ptrace(PTraceRequest.PTRACE_GETREGS, pid, null, &regs) != -1);
 		version(X86)
-			return regs.eax;
+			return cast(SysCall) (regs.orig_eax);
 		else
-			return regs.rax;
+			return cast(SysCall) (regs.orig_rax);
 	}
 	
 	/// Returns the process' registers.
