@@ -36,7 +36,7 @@ struct SaveStatesFile {
 		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?, ?, ?);`);
 		stmt.bind(1, state.id);
 		stmt.bind(2, state.name);
-		stmt.bind(3, cast(ubyte[]) (&state.registers));
+		stmt.bind(3, (cast(ubyte*) (&state.registers))[0..Registers.sizeof]);
 		stmt.execute();
 		
 		state.id = db.lastInsertRowid;
@@ -160,12 +160,5 @@ struct SaveStatesFile {
 		stmt.bind(2, map.id.get);
 		stmt.execute();
 		assert(db.changes == 1);
-	}
-
-	/**
-	 * Closes the save states file.
-	 */
-	void close() {
-		db.close();
 	}
 }

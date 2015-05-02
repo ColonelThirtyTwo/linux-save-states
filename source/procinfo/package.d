@@ -3,6 +3,7 @@ module procinfo;
 import std.regex;
 import std.range;
 import std.c.linux.linux : pid_t;
+import std.algorithm : filter;
 
 import models;
 
@@ -15,14 +16,12 @@ ProcInfo spawn(string[] args) {
 	auto tracer = spawnTraced(args);
 	ProcInfo info = {
 		tracer: tracer,
-		memory: ProcMemory(tracer.pid),
 	};
 	return info;
 }
 
 struct ProcInfo {
 	ProcTracer tracer;
-	ProcMemory memory;
 	
 	/// Traced process PID.
 	pid_t pid() @property {
@@ -34,7 +33,7 @@ struct ProcInfo {
 	SaveState saveState(string name) {
 		SaveState state = {
 			name: name,
-			maps: memory.getMaps().array(),
+			maps: readMemoryMaps(pid).array(),
 			registers: tracer.getRegisters(),
 		};
 		return state;
@@ -43,15 +42,8 @@ struct ProcInfo {
 	/// Loads a state from a SaveState object to the process' state.
 	/// The process should be in a ptrace-stop.
 	void loadState(in SaveState state) {
-		foreach(ref map; state.maps) {
-			if(map.contents.ptr != null)
-				memory.writeMapContents(map);
-		}
+		writeMemoryMaps(pid, state.maps.filter!(x => x.contents.ptr != null));
 		tracer.setRegisters(state.registers);
-	}
-	
-	invariant {
-		assert(tracer.pid == memory.pid);
 	}
 }
 

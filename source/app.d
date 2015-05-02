@@ -5,16 +5,14 @@ import std.algorithm;
 import std.range;
 import std.typecons;
 
-import commands : CommandName;
+import commands : FilterCommands, CommandName;
 import cmds_savefile = commands.savefile;
 import cmds_execute = commands.execute;
 import cmds = commands;
 
-template StaticTuple(E...) { alias StaticTuple = E; }
-
 // Grab all functions in the commands module that start with `cmd_` and
 // generate commands for them.
-alias AllCommandMembers = StaticTuple!(
+alias AllCommandMembers = FilterCommands!(
 	__traits(allMembers, cmds_savefile),
 	__traits(allMembers, cmds_execute),
 );
@@ -25,8 +23,7 @@ Save states are stored in a savestates.db file in the current directory.
 
 Command is one of:
 ` ~ [AllCommandMembers]
-	.filter!(x => x.startsWith("cmd_"))
-	.array().sort()
+	.sort()
 	.map!(x => "* " ~ replace(x[4..$], "_", "-"))
 	.joiner("\n")
 	.array();
@@ -45,10 +42,8 @@ int main(string[] args) {
 	
 	switch(args[1]) {
 		foreach(member; AllCommandMembers) {
-			static if(member.startsWith("cmd_")) {
-				case CommandName!member:
-					return __traits(getMember, cmds, member)(args[2..$]);
-			}
+			case CommandName!member:
+				return __traits(getMember, cmds, member)(args[2..$]);
 		}
 		default:
 			stderr.writeln(USAGE);

@@ -148,6 +148,7 @@ int cmd_replace_map(string[] args) {
 	return 0;
 }
 
+/+
 @("<mapid> <pid>")
 @(`Loads the contents of the map specified by <mapid> into the memory of the process specified by <pid>.`)
 int cmd_load_map(string[] args) {
@@ -182,4 +183,4 @@ int cmd_load_map(string[] args) {
 	
 	return 0;
 }
-
++/

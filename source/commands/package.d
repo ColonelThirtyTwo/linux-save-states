@@ -4,12 +4,25 @@ module commands;
 import std.format : format;
 import std.string;
 import std.traits;
+import std.algorithm;
+import std.typetuple;
 
 public import commands.savefile;
 public import commands.execute;
 
 enum PROGNAME = "linux-save-state";
 
+/// Returns true if the specified member is a command.
+template IsCommand(alias Member) {
+	enum IsCommand = Member.startsWith("cmd_");
+}
+
+/// Given a typetuple of members, filters out the ones that are commands.
+template FilterCommands(Members...) {
+	alias FilterCommands = Filter!(IsCommand, Members);
+}
+
+/// Given a command funciton or string, gets the pretty name of the command.
 template CommandName(alias cmd) {
 	static if(isSomeFunction!cmd)
 		enum cmdstr = __traits(identifier, cmd);
@@ -48,7 +61,6 @@ template ARG_NUM_REQUIRED(alias cmd, uint n) {
 /// Mixin: Opens the save states file as variable `saveStateFile` and begins a transaction.
 enum OPEN_SAVESTATES = q{
 	auto saveStatesFile = SaveStatesFile("savestates.db");
-	scope(exit) saveStatesFile.close();
 	
 	saveStatesFile.db.begin();
 	scope(success) saveStatesFile.db.commit();
