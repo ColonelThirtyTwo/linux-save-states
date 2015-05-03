@@ -57,10 +57,26 @@ struct SaveStatesFile {
 			stmt.bind(8, !!(map.flags & MemoryMapFlags.PRIVATE));
 			stmt.bind(9, map.name);
 			stmt.bind(10, map.offset);
-			if(map.contents)
+			if(map.contents.ptr != null)
 				stmt.bind(11, cast(const(ubyte)[]) compress(map.contents, 9));
 			else
 				stmt.bind(11, null);
+			
+			stmt.execute();
+			stmt.reset();
+		}
+		
+		stmt = db.prepare(`DELETE FROM Files WHERE saveState = ?;`);
+		stmt.bind(1, state.id);
+		stmt.execute();
+		
+		stmt = db.prepare(`INSERT INTO Files VALUES (?, ?, ?, ?, ?);`);
+		foreach(ref file; state.files) {
+			stmt.bind(1, file.id);
+			stmt.bind(2, state.id.get);
+			stmt.bind(3, file.fileName);
+			stmt.bind(4, file.pos);
+			stmt.bind(5, file.flags);
 			
 			stmt.execute();
 			stmt.reset();
@@ -93,26 +109,11 @@ struct SaveStatesFile {
 		
 		stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);
 		stmt.bind(1, state.id.get);
-		results = stmt.execute();
-		foreach(row; results) {
-			MemoryMap map = {
-				id: row.peek!ulong(0),
-				begin: row.peek!ulong(2),
-				end: row.peek!ulong(3),
-				flags:
-					(row.peek!bool(4) ? MemoryMapFlags.READ : 0) |
-					(row.peek!bool(5) ? MemoryMapFlags.WRITE : 0) |
-					(row.peek!bool(6) ? MemoryMapFlags.EXEC : 0) |
-					(row.peek!bool(7) ? MemoryMapFlags.PRIVATE : 0),
-				name: row.peek!string(8),
-				offset: row.peek!ulong(9),
-				contents: cast(const(ubyte)[]) uncompress(
-					row.peek!(ubyte[])(10),
-					row.peek!ulong(3) - row.peek!ulong(2)
-				),
-			};
-			state.maps ~= map;
-		}
+		state.maps = stmt.execute().map!(x => readMemoryMap(x)).array();
+		
+		stmt = db.prepare(`SELECT * FROM Files WHERE saveState = ?;`);
+		stmt.bind(1, state.id.get);
+		state.files = stmt.execute().map!(x => readFileDescriptor(x)).array();
 		
 		return Nullable!SaveState(state);
 	}
@@ -126,7 +127,25 @@ struct SaveStatesFile {
 		if(results.empty)
 			return Nullable!MemoryMap();
 		auto row = results.front;
-		
+		return Nullable!MemoryMap(readMemoryMap(row));
+	}
+	
+	/**
+	 * Writes a modified memory map to the savefile.
+	 * TODO: Currently only updates the contents, and only works on anonymous maps.
+	 */
+	void updateMap(const ref MemoryMap map)
+	in {
+		assert(!map.id.isNull);
+	} body {
+		auto stmt = db.prepare(`UPDATE MemoryMappings SET contents = ? WHERE rowid = ?;`);
+		stmt.bind(1, cast(const(ubyte)[]) compress(map.contents, 9));
+		stmt.bind(2, map.id.get);
+		stmt.execute();
+		assert(db.changes == 1);
+	}
+	
+	private MemoryMap readMemoryMap(Row row) {
 		MemoryMap map = {
 			id: row.peek!ulong(0),
 			begin: row.peek!ulong(2),
@@ -143,22 +162,16 @@ struct SaveStatesFile {
 				row.peek!ulong(3) - row.peek!ulong(2)
 			),
 		};
-		return Nullable!MemoryMap(map);
+		return map;
 	}
 	
-	/**
-	 * Writes a modified memory map to the savefile.
-	 * TODO: Currently only updates the contents, and only works on anonymous
-	 * maps.
-	 */
-	void updateMap(const ref MemoryMap map)
-	in {
-		assert(!map.id.isNull);
-	} body {
-		auto stmt = db.prepare(`UPDATE MemoryMappings SET contents = ? WHERE rowid = ?;`);
-		stmt.bind(1, cast(const(ubyte)[]) compress(map.contents, 9));
-		stmt.bind(2, map.id.get);
-		stmt.execute();
-		assert(db.changes == 1);
+	private FileDescriptor readFileDescriptor(Row row) {
+		FileDescriptor file = {
+			id: row.peek!ulong(0),
+			fileName: row.peek!string(2),
+			pos: row.peek!ulong(3),
+			flags: row.peek!int(4),
+		};
+		return file;
 	}
 }

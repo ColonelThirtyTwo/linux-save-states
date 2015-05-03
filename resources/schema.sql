@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS SaveStates (
 CREATE TABLE IF NOT EXISTS MemoryMappings (
 	rowid INTEGER PRIMARY KEY,
 	saveState INT NOT NULL REFERENCES SaveStates(rowid) ON DELETE CASCADE,
+	
 	startPtr INT NOT NULL,
 	endPtr INT NOT NULL,
 	
@@ -29,5 +30,19 @@ CREATE TABLE IF NOT EXISTS MemoryMappings (
 	CHECK(endptr >= startptr),
 	CHECK((fileName IS NULL AND fileOffset IS NULL) OR (fileName IS NOT NULL AND fileOffset IS NOT NULL))
 );
+CREATE INDEX IF NOT EXISTS MemoryMappings_saveState ON MemoryMappings(saveState);
+
+CREATE TABLE IF NOT EXISTS Files (
+	rowid INTEGER PRIMARY KEY,
+	saveState INT NOT NULL REFERENCES SaveStates(rowid) ON DELETE CASCADE,
+	
+	fileName TEXT NOT NULL,
+	pos INT NOT NULL,
+	flags INT NOT NULL,
+	
+	CHECK(pos >= 0),
+	CHECK(flags >= 0)
+);
+CREATE INDEX IF NOT EXISTS Files_saveState ON Files(saveState);
 
 COMMIT;

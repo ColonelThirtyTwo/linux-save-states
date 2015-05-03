@@ -10,6 +10,7 @@ import models;
 public import procinfo.memory;
 public import procinfo.tracer;
 public import procinfo.cmdpipe;
+public import procinfo.files;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
@@ -40,6 +41,7 @@ struct ProcInfo {
 			name: name,
 			maps: readMemoryMaps(pid).array(),
 			registers: tracer.getRegisters(),
+			files: readFiles(pid).array(),
 		};
 		return state;
 	}

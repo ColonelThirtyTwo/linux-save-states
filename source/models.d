@@ -12,11 +12,14 @@ struct SaveState {
 	/// Save state name, aka label
 	string name;
 	
+	/// Saved registers
+	Registers registers;
+	
 	/// Saved memory maps
 	MemoryMap[] maps;
 	
-	/// Saved registers
-	Registers registers;
+	/// Saved open files
+	FileDescriptor[] files;
 }
 
 /// Memory map flags
@@ -53,4 +56,19 @@ struct MemoryMap {
 		assert(end >= begin);
 		assert(!contents || contents.length == (end - begin));
 	}
+}
+
+/// File descriptor entry
+struct FileDescriptor {
+	/// ID of the file. Null if the file isn't saved.
+	Nullable!(ulong, 0) id;
+	
+	/// Filename
+	string fileName;
+	
+	/// File offset
+	ulong pos;
+	
+	/// File open flags
+	int flags;
 }

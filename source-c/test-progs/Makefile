@@ -1,5 +1,5 @@
 
-all: hello-world.exe for-loop.exe
+all: hello-world.exe for-loop.exe line-cat.exe
 
 %.exe: %.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $< -l savestates

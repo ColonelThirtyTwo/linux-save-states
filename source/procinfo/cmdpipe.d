@@ -73,8 +73,6 @@ struct CommandPipe {
 	if(staticIndexOf!(Unqual!T, int, uint, long, ulong) != -1) {
 		const(ubyte)[] buf = cast(const(ubyte)[]) ((&v)[0..1]);
 		
-		import std.stdio : writeln; writeln(T.stringof, buf);
-		
 		ssize_t written = linux_write(wrapperWriterFd, buf.ptr, buf.length);
 		errnoEnforce(written != -1);
 		enforce(written == buf.length, "Didn't write enough data.");
