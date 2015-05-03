@@ -153,6 +153,7 @@ int cmd_execute(string[] args) {
 		}
 		
 		if(!WIFSTOPPED(status)) {
+			stdout.writeln("+ unknown event: "~status.to!string);
 			proc.tracer.resume();
 			continue;
 		}
@@ -170,7 +171,7 @@ int cmd_execute(string[] args) {
 		} else if(WSTOPSIG(status) == (SIGTRAP | 0x80)) {
 			if(!inSyscall) {
 				// entering syscall
-				writeln("+ syscall: ", proc.tracer.getSyscall().to!string);
+				stdout.writeln("+ syscall: ", proc.tracer.getSyscall().to!string);
 				inSyscall = true;
 			} else {
 				// exiting syscall
@@ -182,6 +183,7 @@ int cmd_execute(string[] args) {
 			}
 			proc.tracer.resume();
 		} else {
+			stdout.writeln("+ signal: "~WSTOPSIG(status).to!string);
 			proc.tracer.resume(WSTOPSIG(status));
 		}
 	}

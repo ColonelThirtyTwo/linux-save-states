@@ -5,6 +5,7 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -44,12 +45,24 @@ static void readData(int fd, void* out, size_t size) {
 	assert(numWritten == size);
 }*/
 
+/// Gets the process PID directly from the kernel, bypassing any caching that libc might be doing.
+static pid_t real_getpid() {
+	pid_t pid;
+	__asm__ volatile (
+		"syscall;"
+		: "=a" (pid)
+		: "0" (SYS_getpid)
+	);
+	return pid;
+}
+
 /// Pauses the process and waits for the tracer to resume it.
 /// The game's state can be saved during this pause.
 void lss_pause() {
 	while(1) {
 		// Pause self (and notify tracer that we finished a command)
-		kill(getpid(), SIGTRAP);
+		if(kill(real_getpid(), SIGTRAP) == -1)
+			fail("kill failed");
 		
 		// Get a command
 		int32_t cmdInt;
