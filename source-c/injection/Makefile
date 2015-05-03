@@ -1,6 +1,6 @@
 
 libsavestates.so: injection.c
-	gcc -Wall -std=gnu99 -shared -g -fPIC -o $@ $<
+	gcc -Wall -I ../../resources/ -std=gnu99 -shared -g -fPIC -o $@ $<
 
 clean:
 	rm -f libsavestates.so

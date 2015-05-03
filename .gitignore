@@ -5,6 +5,8 @@
 *.obj
 *.dll
 *.so
+*.exe
+*.exe.nolib
 /savestates.db
 /stop-self
 /linux-save-state

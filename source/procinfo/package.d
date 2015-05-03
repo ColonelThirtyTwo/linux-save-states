@@ -9,19 +9,24 @@ import models;
 
 public import procinfo.memory;
 public import procinfo.tracer;
+public import procinfo.cmdpipe;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
 ProcInfo spawn(string[] args) {
-	auto tracer = spawnTraced(args);
+	CommandPipe cmdpipe = CommandPipe.create();
+	
+	auto tracer = spawnTraced(args, cmdpipe);
 	ProcInfo info = {
 		tracer: tracer,
+		commandPipe: cmdpipe,
 	};
 	return info;
 }
 
 struct ProcInfo {
 	ProcTracer tracer;
+	CommandPipe commandPipe;
 	
 	/// Traced process PID.
 	pid_t pid() @property {
@@ -51,7 +56,7 @@ struct ProcInfo {
 bool isStopped(in pid_t pid) {
 	alias statRE = ctRegex!`^[^\s]+ [^\s]+ (.)`;
 	
-	auto stat = File("/proc/"~to!string(pid)~"/stat");
+	auto stat = File("/proc/"~to!string(pid)~"/stat", "reb");
 	auto line = stat.readln();
 	auto match = line.matchFirst(statRE);
 	assert(match);

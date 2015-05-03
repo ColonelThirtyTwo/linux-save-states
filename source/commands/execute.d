@@ -23,7 +23,6 @@ private struct CommandInterpreter {
 	
 	void doCommands() {
 		this.doLoop = true;
-		
 		while(doLoop) {
 			this.write("> ");
 			auto args = readln()
@@ -34,6 +33,8 @@ private struct CommandInterpreter {
 			;
 			this.doCommand(args);
 		}
+		
+		proc.commandPipe.write(Wrapper2AppCmd.CMD_CONTINUE);
 	}
 
 private:
@@ -50,6 +51,7 @@ private:
 		return stdout.write("+ ", t);
 	}
 	
+	/// Runs one command
 	void doCommand(string[] args) {
 		enum AllCommands = FilterCommands!(__traits(allMembers, CommandInterpreter));
 		
@@ -163,6 +165,7 @@ int cmd_execute(string[] args) {
 				shouldStop = true;
 			else
 				commands.doCommands();
+			
 			proc.tracer.resume();
 		} else if(WSTOPSIG(status) == (SIGTRAP | 0x80)) {
 			if(!inSyscall) {

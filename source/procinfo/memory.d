@@ -14,8 +14,8 @@ import models;
 
 /// Reads memory maps from a file and returns a range.
 auto readMemoryMaps(pid_t pid) {
-	auto mapsFile = File("/proc/"~to!string(pid)~"/maps", "rb");
-	auto memFile = File("/proc/"~to!string(pid)~"/mem", "r+b");
+	auto mapsFile = File("/proc/"~to!string(pid)~"/maps", "reb");
+	auto memFile = File("/proc/"~to!string(pid)~"/mem", "r+eb");
 	
 	return mapsFile.byLineCopy()
 		.map!(line => parseMapsLine(line))
@@ -32,7 +32,7 @@ auto readMemoryMaps(pid_t pid) {
 /// The process needs to have memory maps set up where the maps are written to.
 void writeMemoryMaps(Range)(pid_t pid, Range maps)
 if(isInputRange!Range && is(ElementType!Range : const(MemoryMap))) {
-	auto memFile = File("/proc/"~to!string(pid)~"/mem", "r+b");
+	auto memFile = File("/proc/"~to!string(pid)~"/mem", "r+eb");
 	
 	foreach(const map; maps) {
 		assert(map.contents.ptr != null);

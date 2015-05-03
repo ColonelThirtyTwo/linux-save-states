@@ -5,11 +5,13 @@ import std.exception : errnoEnforce;
 import std.c.linux.linux;
 import std.process : execvp;
 import core.stdc.config : c_ulong, c_long;
+
 import syscalls;
+import procinfo.cmdpipe;
 
 /// Spawns a process in an environment suitable for TASing and traces it.
 /// The process will start paused.
-ProcTracer spawnTraced(string[] args)
+ProcTracer spawnTraced(string[] args, CommandPipe cmdpipe)
 in {
 	assert(args.length >= 1);
 } body {
@@ -20,18 +22,21 @@ in {
 	int pid = fork();
 	errnoEnforce(pid != -1);
 	if(pid == 0) {
+		// In fork, set up and run wrapped process.
 		try {
-			// In fork, set up and run wrapped process.
-			
 			// Disable ASLR to place memory in repeatable positions
 			errnoEnforce(personality(ADDR_NO_RANDOMIZE) != -1);
+			
+			// Setup command pipes
+			cmdpipe.setupPipes();
+			
 			// Trace self
 			errnoEnforce(ptrace(PTraceRequest.PTRACE_TRACEME, 0, null, null) != -1);
 			// Execute
 			errnoEnforce(execvp(args[0], args) != 0);
 			assert(false);
 		} catch(Exception ex) {
-			// Don't run destructors in forked process; database/file destructors won't be valid.
+			// Don't run destructors in forked process; closing the database would be dangerous
 			import std.stdio : stderr;
 			import core.stdc.stdlib : exit;
 			
@@ -39,18 +44,16 @@ in {
 			exit(1);
 			assert(false);
 		}
-	} else {
-		// Not in fork; set up options
-		import std.stdio : writeln; writeln(pid);
-		
-		auto tracer = ProcTracer(pid);
-		tracer.wait();
-		
-		errnoEnforce(ptrace(PTraceRequest.PTRACE_SETOPTIONS, pid, null,
-			cast(void*) (PTraceOptions.PTRACE_O_EXITKILL | PTraceOptions.PTRACE_O_TRACESYSGOOD)) != -1);
-		
-		return ProcTracer(pid);
 	}
+	
+	// Not in fork; set up ptrace options
+	auto tracer = ProcTracer(pid);
+	tracer.wait();
+	
+	errnoEnforce(ptrace(PTraceRequest.PTRACE_SETOPTIONS, pid, null,
+		cast(void*) (PTraceOptions.PTRACE_O_EXITKILL | PTraceOptions.PTRACE_O_TRACESYSGOOD)) != -1);
+	
+	return tracer;
 }
 
 /// Structure for tracing a process using ptrace.
@@ -102,7 +105,7 @@ struct ProcTracer {
 	/// Sets the process' registers.
 	/// The process must be in a ptrace-stop.
 	void setRegisters(in Registers regs) {
-		// ptrace doesn't modify the registers here, so it's ok to cast away const.
+		// ptrace doesn't modify the registers struct here, so it's ok to cast away const.
 		errnoEnforce(ptrace(PTraceRequest.PTRACE_SETREGS, pid, null, &(cast(Registers)regs).general) != -1);
 		errnoEnforce(ptrace(PTraceRequest.PTRACE_SETFPREGS, pid, null, &(cast(Registers)regs).floating) != -1);
 	}
