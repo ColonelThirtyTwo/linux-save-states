@@ -25,6 +25,8 @@ ProcInfo spawn(string[] args) {
 	return info;
 }
 
+/// Process info structure, which holds several other process-related structures
+/// for controlling and getting info from a process.
 struct ProcInfo {
 	ProcTracer tracer;
 	CommandPipe commandPipe;
@@ -51,6 +53,7 @@ struct ProcInfo {
 	void loadState(in SaveState state) {
 		writeMemoryMaps(pid, state.maps.filter!(x => x.contents.ptr != null));
 		tracer.setRegisters(state.registers);
+		loadFiles(this, state.files);
 	}
 }
 

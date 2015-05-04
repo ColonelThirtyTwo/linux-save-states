@@ -70,13 +70,14 @@ struct SaveStatesFile {
 		stmt.bind(1, state.id);
 		stmt.execute();
 		
-		stmt = db.prepare(`INSERT INTO Files VALUES (?, ?, ?, ?, ?);`);
+		stmt = db.prepare(`INSERT INTO Files VALUES (?, ?, ?, ?, ?, ?);`);
 		foreach(ref file; state.files) {
 			stmt.bind(1, file.id);
 			stmt.bind(2, state.id.get);
-			stmt.bind(3, file.fileName);
-			stmt.bind(4, file.pos);
-			stmt.bind(5, file.flags);
+			stmt.bind(3, file.descriptor);
+			stmt.bind(4, file.fileName);
+			stmt.bind(5, file.pos);
+			stmt.bind(6, file.flags);
 			
 			stmt.execute();
 			stmt.reset();
@@ -168,9 +169,10 @@ struct SaveStatesFile {
 	private FileDescriptor readFileDescriptor(Row row) {
 		FileDescriptor file = {
 			id: row.peek!ulong(0),
-			fileName: row.peek!string(2),
-			pos: row.peek!ulong(3),
-			flags: row.peek!int(4),
+			descriptor: row.peek!int(2),
+			fileName: row.peek!string(3),
+			pos: row.peek!ulong(4),
+			flags: row.peek!int(5),
 		};
 		return file;
 	}

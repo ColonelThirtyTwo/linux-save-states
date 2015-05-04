@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "Couldn't open: %s\n", strerror(errno));
 		return 2;
 	}
+	setvbuf(f, NULL, _IONBF, 0);
 	
 	int c;
 	while((c = fgetc(f)) != EOF) {

@@ -139,54 +139,42 @@ int cmd_execute(string[] args) {
 	
 	auto commands = CommandInterpreter(saveStatesFile, proc);
 	
-	while(true) {
-		int status = proc.tracer.wait();
-		
-		// Check if exited
-		if(WIFEXITED(status)) {
-			stdout.writeln("+ exited with status ", WEXITSTATUS(status));
-			return WEXITSTATUS(status);
-		}
-		if(WIFSIGNALED(status)) {
-			stdout.writeln("+ exited due to signal");
-			return 2;
-		}
-		
-		if(!WIFSTOPPED(status)) {
-			stdout.writeln("+ unknown event: "~status.to!string);
-			proc.tracer.resume();
-			continue;
-		}
-		
-		if(WSTOPSIG(status) == SIGTRAP) {
-			// got trap, prepare to go into the savestate command interpreter
-			if(inSyscall)
-				// `kill(getpid(), SIGTRAP)` will stop the process while in a system call, during which
-				// the process shouldn't be saved, so delay stopping until the syscall exits.
-				shouldStop = true;
-			else
-				commands.doCommands();
-			
-			proc.tracer.resume();
-		} else if(WSTOPSIG(status) == (SIGTRAP | 0x80)) {
-			if(!inSyscall) {
-				// entering syscall
-				stdout.writeln("+ syscall: ", proc.tracer.getSyscall().to!string);
-				inSyscall = true;
-			} else {
-				// exiting syscall
-				inSyscall = false;
-				if(shouldStop) {
+	try {
+		while(true) {
+			auto ev = proc.tracer.wait();
+			final switch(ev) {
+			case WaitEvent.PAUSE:
+				if(inSyscall)
+					// `kill(getpid(), SIGTRAP)` will stop the process while in a system call, during which
+					// the process shouldn't be saved, so delay stopping until the syscall exits.
+					shouldStop = true;
+				else
 					commands.doCommands();
-					shouldStop = false;
+				proc.tracer.resume();
+				break;
+			case WaitEvent.SYSCALL:
+				if(!inSyscall) {
+					// entering syscall
+					//writeln("+ syscall: ", proc.tracer.getSyscall().to!string);
+					inSyscall = true;
+				} else {
+					// exiting syscall
+					inSyscall = false;
+					if(shouldStop) {
+						commands.doCommands();
+						shouldStop = false;
+					}
 				}
+				proc.tracer.resume();
+				break;
 			}
-			proc.tracer.resume();
-		} else {
-			stdout.writeln("+ signal: "~WSTOPSIG(status).to!string);
-			proc.tracer.resume(WSTOPSIG(status));
 		}
+	} catch(TraceeExited ex) {
+		writeln("+ exited with status ", ex.exitCode);
+		return ex.exitCode;
+	} catch(TraceeSignaled ex) {
+		writeln("+ exited due to signal");
+		return 2;
 	}
-	
 	assert(false);
 }

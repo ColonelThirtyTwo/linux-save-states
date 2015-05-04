@@ -68,21 +68,17 @@ void lss_pause() {
 		int32_t cmdInt;
 		readData(TRACEE_READ_FD, &cmdInt, sizeof(int32_t));
 		Wrapper2AppCmd cmd = (Wrapper2AppCmd) cmdInt;
-		
-		// The case statements here have brackets around the code to create new scopes,
-		// so that variable names do not clash.
-		switch(cmd) {
-		case CMD_CONTINUE:
+				
+		if(cmd == CMD_CONTINUE)
 			return;
-		case CMD_SETHEAP: {
+		else if(cmd == CMD_SETHEAP) {
 			void* newPtr;
 			readData(TRACEE_READ_FD, &newPtr, sizeof(void*));
 			
 			int code = brk(newPtr);
 			if(code == -1)
 				fail("brk failed");
-			break;
-		} case CMD_OPEN: {
+		} else if(cmd == CMD_OPEN) {
 			// Read filename
 			uint32_t fnameLen;
 			readData(TRACEE_READ_FD, &fnameLen, sizeof(fnameLen));
@@ -120,19 +116,15 @@ void lss_pause() {
 			if(seekedPos == -1)
 				fail("seek failed");
 			assert(seekedPos == seekPos);
-			
-			break;
-		} case CMD_CLOSE: {
+		} else if(cmd == CMD_CLOSE) {
 			int fd;
 			readData(TRACEE_READ_FD, &fd, sizeof(int));
 			
 			if(close(fd) == -1)
 				fail("close failed");
-			break;
-		} default: {
+		} else {
 			fprintf(stderr, "Unknown command: %x\n", cmdInt);
 			abort();
-		}
 		}
 	}
 }

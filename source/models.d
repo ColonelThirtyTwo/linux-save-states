@@ -63,6 +63,9 @@ struct FileDescriptor {
 	/// ID of the file. Null if the file isn't saved.
 	Nullable!(ulong, 0) id;
 	
+	/// Descriptor ID
+	int descriptor;
+	
 	/// Filename
 	string fileName;
 	

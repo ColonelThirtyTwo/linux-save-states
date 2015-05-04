@@ -82,7 +82,8 @@ struct CommandPipe {
 	void write(T)(T v)
 	if(isSomeString!T) {
 		string s = to!string(v);
-		this.write!uint(s.length);
+		assert(s.length <= uint.max);
+		this.write!uint(cast(uint) s.length);
 		
 		ssize_t written = linux_write(wrapperWriterFd, s.ptr, s.length);
 		errnoEnforce(written != -1);

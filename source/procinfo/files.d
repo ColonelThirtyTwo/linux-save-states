@@ -6,12 +6,15 @@ import std.conv : to;
 import std.format : format;
 import std.string : chomp, chompPrefix;
 import std.algorithm;
+import std.range;
 import std.regex;
 import std.typecons : Nullable;
 import std.c.linux.linux : pid_t;
 
 import models;
-import procinfo.cmdpipe : APP_READ_FD, APP_WRITE_FD;
+import procinfo;
+import procinfo.cmdpipe;
+import procinfo.tracer : WaitEvent;
 
 /// Reads all of the file descriptors of a process and returns a range of FileDescriptor structs.
 /// The process should be paused during this.
@@ -47,6 +50,7 @@ auto readFiles(pid_t pid) {
 			assert(fdInfoMatch, "Error parsing file descriptor info. Contents:\n"~fdInfoText);
 			
 			FileDescriptor file = {
+				descriptor: fd,
 				fileName: link,
 				pos: fdInfoMatch[1].to!ulong,
 				flags: fdInfoMatch[2].to!int(8),
@@ -56,6 +60,34 @@ auto readFiles(pid_t pid) {
 		.filter!(x => !x.isNull)
 		.map!(x => x.get)
 	;
+}
+
+/// Closes all open files of a process and loads the passed list of files.
+/// stdin/out/err and the command pipes are skipped.
+void loadFiles(Range)(auto ref ProcInfo proc, Range newFiles)
+if(isInputRange!Range && is(ElementType!Range : FileDescriptor)) {
+	// Need to resume the tracee before writing to the pipe, so that it can drain the pipe
+	// if it overfills.
+	foreach(fd; getFileDescriptors(proc.pid)) {
+		proc.tracer.resume();
+		proc.commandPipe.write(Wrapper2AppCmd.CMD_CLOSE);
+		proc.commandPipe.write!int(fd);
+		
+		while(proc.tracer.wait() != WaitEvent.PAUSE)
+			proc.tracer.resume();
+	}
+	
+	foreach(file; newFiles) {
+		proc.tracer.resume();
+		proc.commandPipe.write(Wrapper2AppCmd.CMD_OPEN);
+		proc.commandPipe.write!string(file.fileName);
+		proc.commandPipe.write!int(file.descriptor);
+		proc.commandPipe.write!int(file.flags);
+		proc.commandPipe.write!ulong(file.pos);
+		
+		while(proc.tracer.wait() != WaitEvent.PAUSE)
+			proc.tracer.resume();
+	}
 }
 
 /// Returns a range of int file descriptors.

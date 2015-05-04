@@ -1,6 +1,7 @@
 
 module procinfo.tracer;
 
+import std.conv : text, to;
 import std.exception : errnoEnforce;
 import std.c.linux.linux;
 import std.process : execvp;
@@ -8,6 +9,7 @@ import core.stdc.config : c_ulong, c_long;
 
 import syscalls;
 import procinfo.cmdpipe;
+
 
 /// Spawns a process in an environment suitable for TASing and traces it.
 /// The process will start paused.
@@ -65,13 +67,27 @@ struct ProcTracer {
 		this.pid = pid;
 	}
 	
-	/// Calls waitpid on the child process and returns the status.
-	int wait() {
+	/// Waits for the tracee to pause after a call to resume.
+	/// Returns a WaitEvent describing what caused the process to stop,
+	/// or throws one of TraceeExited, TraceeSignaled, or UnknownEvent.
+	WaitEvent wait() {
 		int status;
 		int waitedPID = waitpid(pid, &status, 0);
 		errnoEnforce(waitedPID != -1);
 		assert(waitedPID == pid);
-		return status;
+		
+		if(WIFEXITED(status))
+			throw new TraceeExited(WEXITSTATUS(status));
+		if(WIFSIGNALED(status))
+			throw new TraceeSignaled(WSTOPSIG(status));
+		if(!WIFSTOPPED(status))
+			throw new UnknownEvent(status);
+		
+		if(WSTOPSIG(status) == SIGTRAP)
+			return WaitEvent.PAUSE;
+		if(WSTOPSIG(status) == (SIGTRAP | 0x80))
+			return WaitEvent.SYSCALL;
+		throw new UnknownEvent(status);
 	}
 	
 	/// Continues a process in a ptrace stop.
@@ -112,6 +128,45 @@ struct ProcTracer {
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Return value of Tracer.wait
+enum WaitEvent {
+	/// Process is paused, and can be saved or loaded
+	PAUSE,
+	/// Process did a system call
+	SYSCALL,
+};
+
+/// Thrown by wait when the traced process exits normally.
+final class TraceeExited : Exception {
+	const int exitCode;
+	
+	//this(string msg, string file = null, size_t line = 0)
+	this(int code, string file=__FILE__, size_t line=__LINE__) {
+		super(text("Tracee terminated with code ", code), file, line);
+		exitCode = code;
+	}
+}
+
+/// Thrown by wait when the traced process terminates via a signal.
+final class TraceeSignaled : Exception {
+	const int signal;
+	
+	this(int signal, string file=__FILE__, size_t line=__LINE__) {
+		super(text("Tracee terminated via signal 0x", signal.to!string(16)), file, line);
+		this.signal = signal;
+	}
+}
+
+/// Thrown by wait when an unknown event was received.
+final class UnknownEvent : Exception {
+	const int status;
+	
+	this(int status, string file=__FILE__, size_t line=__LINE__) {
+		super(text("Received unknown status from wait: 0x", status.to!string(16)), file, line);
+		this.status = status;
+	}
+}
 
 /// PTrace commands. See ptrace(2) for more info.
 enum PTraceRequest : int {
