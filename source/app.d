@@ -4,49 +4,35 @@ import std.conv : to, ConvException;
 import std.algorithm;
 import std.range;
 import std.typecons;
+import std.typetuple;
 
-import commands : FilterCommands, CommandName;
-import cmds_savefile = commands.savefile;
-import cmds_execute = commands.execute;
-import cmds = commands;
+import commands : CommandName;
+import allcmds = commands.all;
 
-// Grab all functions in the commands module that start with `cmd_` and
-// generate commands for them.
-alias AllCommandMembers = FilterCommands!(
-	__traits(allMembers, cmds_savefile),
-	__traits(allMembers, cmds_execute),
-);
-
-enum USAGE = `Usage: linux-save-state <command>
-A tool for saving and restoring linux processes.
-Save states are stored in a savestates.db file in the current directory.
-
-Command is one of:
-` ~ [AllCommandMembers]
-	.sort()
-	.map!(x => "* " ~ replace(x[4..$], "_", "-"))
-	.joiner("\n")
-	.array();
+import savefile;
+import global;
 
 int main(string[] args) {
-
 	if(args.length < 2) {
-		stderr.writeln(USAGE);
+		stderr.writeln(allcmds.PROG_USAGE);
 		return 1;
 	}
 
 	if(args[1] == "--help" || args[1] == "-h" || args[1] == "help") {
-		writeln(USAGE);
+		writeln(allcmds.PROG_USAGE);
 		return 0;
 	}
 	
+	saveFile = SaveStatesFile("savestates.db");
+	//scope(exit) saveFile.close();
+	
 	switch(args[1]) {
-		foreach(member; AllCommandMembers) {
+		foreach(member; allcmds.ProgCommands) {
 			case CommandName!member:
-				return __traits(getMember, cmds, member)(args[2..$]);
+				return __traits(getMember, allcmds, member)(args[2..$]);
 		}
 		default:
-			stderr.writeln(USAGE);
+			stderr.writeln(allcmds.PROG_USAGE);
 			stderr.writeln("No such command: "~args[1]);
 			return 1;
 	}

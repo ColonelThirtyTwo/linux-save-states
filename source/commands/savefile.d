@@ -12,17 +12,7 @@ import models;
 import commands;
 import savefile;
 import procinfo;
-
-@("")
-@(`Creates an empty savestate file.`)
-int cmd_create(string[] args) {
-	mixin(ARG_HELP!cmd_create);
-	mixin(ARG_NUM_REQUIRED!(cmd_create, 0));
-
-	mixin(OPEN_SAVESTATES);
-
-	return 0;
-}
+import global;
 
 @("")
 @("Lists all stored save states in chronological order.")
@@ -30,9 +20,9 @@ int cmd_list_states(string[] args) {
 	mixin(ARG_HELP!cmd_list_states);
 	mixin(ARG_NUM_REQUIRED!(cmd_list_states, 0));
 
-	mixin(OPEN_SAVESTATES);
+	mixin(Transaction!saveFile);
 
-	foreach(label; saveStatesFile.listStates())
+	foreach(label; saveFile.listStates())
 		writeln(label);
 	return 0;
 }
@@ -44,9 +34,9 @@ int cmd_show_state(string[] args) {
 	mixin(ARG_HELP!cmd_show_state);
 	mixin(ARG_NUM_REQUIRED!(cmd_show_state, 1));
 
-	mixin(OPEN_SAVESTATES);
+	mixin(Transaction!saveFile);
 	
-	auto state = saveStatesFile.loadState(args[0]);
+	auto state = saveFile.loadState(args[0]);
 	if(state.isNull) {
 		stderr.writeln("No such state: "~args[0]);
 		return 1;
@@ -93,9 +83,9 @@ int cmd_dump_map(string[] args) {
 		return 1;
 	}
 
-	mixin(OPEN_SAVESTATES);
+	mixin(Transaction!saveFile);
 
-	auto map = saveStatesFile.getMap(id);
+	auto map = saveFile.getMap(id);
 	if(map.isNull) {
 		stderr.writeln("Map not found");
 		return 1;
@@ -125,10 +115,10 @@ int cmd_replace_map(string[] args) {
 		stderr.writeln("Invalid ID");
 		return 1;
 	}
-
-	mixin(OPEN_SAVESTATES);
 	
-	auto map = saveStatesFile.getMap(id);
+	mixin(Transaction!saveFile);
+	
+	auto map = saveFile.getMap(id);
 	if(map.isNull) {
 		stderr.writeln("Map not found");
 		return 1;
@@ -143,7 +133,7 @@ int cmd_replace_map(string[] args) {
 	}
 	map.contents = newContents;
 	
-	saveStatesFile.updateMap(map);
+	saveFile.updateMap(map);
 	
 	return 0;
 }
@@ -165,9 +155,9 @@ int cmd_load_map(string[] args) {
 		return 1;
 	}
 	
-	mixin(OPEN_SAVESTATES);
+	mixin(Transaction!saveFile);
 	
-	auto map = saveStatesFile.getMap(mapId);
+	auto map = saveFile.getMap(mapId);
 	if(map.isNull) {
 		stderr.writeln("Map not found");
 		return 1;

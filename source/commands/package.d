@@ -7,62 +7,70 @@ import std.traits;
 import std.algorithm;
 import std.typetuple;
 
-public import commands.savefile;
-public import commands.execute;
-
-enum PROGNAME = "linux-save-state";
+import allCmds = commands.all;
 
 /// Returns true if the specified member is a command.
 template IsCommand(alias Member) {
 	enum IsCommand = Member.startsWith("cmd_");
 }
 
-/// Given a typetuple of members, filters out the ones that are commands.
-template FilterCommands(Members...) {
-	alias FilterCommands = Filter!(IsCommand, Members);
-}
-
 /// Given a command funciton or string, gets the pretty name of the command.
-template CommandName(alias cmd) {
-	static if(isSomeFunction!cmd)
-		enum cmdstr = __traits(identifier, cmd);
+template CommandName(alias Cmd) {
+	static if(isSomeFunction!Cmd)
+		enum cmdstr = __traits(identifier, Cmd);
 	else
-		enum cmdstr = cmd;
+		enum cmdstr = Cmd;
 	enum CommandName = cmdstr[4..$].replace("_", "-");
 }
 
+/// UDA for restricting where a command may be executed.
+/// CliOnly commands may only be executed when starting the process via process arguments.
+/// ShellOnly commands may only be executed in the tracer shell.
+struct CliOnly {}
+/// ditto
+struct ShellOnly {}
+
+/// Checks the command for CliOnly
+template IsCliOnly(alias Cmd) {
+	enum IsCliOnly = staticIndexOf!(CliOnly, __traits(getAttributes, Cmd)) != -1;
+}
+/// ditto
+template IsCliOnly(string Cmd) {
+	enum IsCliOnly = IsCliOnly!(__traits(getMember, allCmds, Cmd));
+}
+
+/// Checks the command for ShellOnly
+template IsShellOnly(alias Cmd) {
+	enum IsShellOnly = staticIndexOf!(ShellOnly, __traits(getAttributes, Cmd)) != -1;
+}
+/// ditto
+template IsShellOnly(string Cmd) {
+	enum IsShellOnly = IsShellOnly!(__traits(getMember, allCmds, Cmd));
+}
+
 /// Gets help text for a command
-template Help(alias cmd) {
-	enum Help = "Usage: " ~ PROGNAME ~ " " ~ CommandName!cmd ~ " " ~
-		__traits(getAttributes, cmd)[0] ~ "\n" ~
-		__traits(getAttributes, cmd)[1];
+template Help(alias Cmd) {
+	enum Help = "Usage: " ~ CommandName!Cmd ~ " " ~
+		__traits(getAttributes, Cmd)[0] ~ "\n" ~
+		__traits(getAttributes, Cmd)[1];
 }
 
 /// Mixin: checks args for -h/--help, and prints USAGE if found.
-template ARG_HELP(alias cmd) {
+template ARG_HELP(alias Cmd) {
 	enum ARG_HELP = q{
 		if(args.canFind("--help") || args.canFind("-h")) {
 			writeln(`%s`);
 			return 0;
 		}
-	}.format(Help!cmd);
+	}.format(Help!Cmd);
 }
 
 /// Mixin: Prints usage and errors out if args does not contain exactly n elements
-template ARG_NUM_REQUIRED(alias cmd, uint n) {
+template ARG_NUM_REQUIRED(alias Cmd, uint n) {
 	enum ARG_NUM_REQUIRED = q{
 		if(args.length != %d) {
 			stderr.writeln(`%s`);
 			return 1;
 		}
-	}.format(n, Help!cmd);
+	}.format(n, Help!Cmd);
 }
-
-/// Mixin: Opens the save states file as variable `saveStateFile` and begins a transaction.
-enum OPEN_SAVESTATES = q{
-	auto saveStatesFile = SaveStatesFile("savestates.db");
-	
-	saveStatesFile.db.begin();
-	scope(success) saveStatesFile.db.commit();
-	scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
-};

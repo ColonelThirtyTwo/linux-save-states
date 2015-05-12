@@ -10,21 +10,20 @@ import std.typetuple;
 
 import d2sqlite3;
 
-import commands : FilterCommands, CommandName, Help;
+import commands : CommandName, Help, CliOnly;
 import models;
 import procinfo;
 import savefile;
 
+import allcmds = commands.all;
+import global;
+
 private struct CommandInterpreter {
-	this(SaveStatesFile f, ProcInfo p) {
-		this.saveStatesFile = f;
-		this.proc = p;
-	}
-	
 	void doCommands() {
 		this.doLoop = true;
+		writeln("-- Paused --");
 		while(doLoop) {
-			this.write("> ");
+			write("> ");
 			auto args = readln()
 				.chomp("\n")
 				.splitter
@@ -34,86 +33,47 @@ private struct CommandInterpreter {
 			this.doCommand(args);
 		}
 		
-		proc.commandPipe.write(Wrapper2AppCmd.CMD_CONTINUE);
+		process.commandPipe.write(Wrapper2AppCmd.CMD_CONTINUE);
 	}
-
-private:
-	SaveStatesFile saveStatesFile;
-	ProcInfo proc;
 	
-	// set to false to stop the command loop and continue the process
+private:
+	/// set to false to stop the command loop and continue the process
 	bool doLoop;
 	
-	void writeln(T...)(T t) {
-		return stdout.writeln("+ ", t);
-	}
-	void write(T...)(T t) {
-		return stdout.write("+ ", t);
-	}
-	
 	/// Runs one command
-	void doCommand(string[] args) {
-		enum AllCommands = FilterCommands!(__traits(allMembers, CommandInterpreter));
-		
+	int doCommand(string[] args) {
 		if(args.length == 0)
-			return;
+			return 0;
 		
 		switch(args[0]) {
-			foreach(cmd; AllCommands) {
+			foreach(cmd; allcmds.ShellCommands) {
 				case CommandName!cmd:
-					return __traits(getMember, this, cmd)(args[1..$]);
+					return __traits(getMember, allcmds, cmd)(args[1..$]);
 			}
+			
+			case "h":
+			case "help":
+				writeln(allcmds.SHELL_USAGE);
+				return 0;
+			
+			case "c":
+			case "continue":
+				if(args.length > 1)
+					writeln("Usage: c[ontinue]\nContinues execution of the traced process.");
+				else
+					doLoop = false;
+				return 0;
+			
 			default:
-				this.writeln("Unknown command");
+				writeln("Unknown command");
+				return 1;
 		}
-	}
-	
-	// /////////////////////////////////////////////////////////
-	
-	@("")
-	@("Resumes execution of the program.")
-	void cmd_continue(string[] args) {
-		if(args.length != 0)
-			return this.writeln("Usage: c[ontinue]");
-		doLoop = false;
-	}
-	alias cmd_c = cmd_continue;
-	
-	@("<label>")
-	@(`Saves the state.`)
-	void cmd_save(string[] args) {
-		if(args.length != 1)
-			return this.writeln("Usage: s[ave] <label>");
-		saveStatesFile.db.begin();
-		scope(success) saveStatesFile.db.commit();
-		scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
-		
-		saveStatesFile.writeState(proc.saveState(args[0]));
-		
-		this.writeln("state saved");
-	}
-	alias cmd_s = cmd_save;
-	
-	@("<label>")
-	@(`Loads a state`)
-	void cmd_load(string[] args) {
-		if(args.length != 1)
-			return this.writeln("Usage: l[oad] <label>");
-		saveStatesFile.db.begin();
-		scope(success) saveStatesFile.db.commit();
-		scope(failure) if(!saveStatesFile.db.isAutoCommit) saveStatesFile.db.rollback();
-		
-		auto state = saveStatesFile.loadState(args[0]);
-		if(state.isNull)
-			return this.writeln("No such state.");
-		proc.loadState(state.get);
-		
-		this.writeln("state loaded");
 	}
 }
 
 @("<proc> [args...]")
 @(`Executes a process in an environment suitable for TASing.`)
+@CliOnly
 int cmd_execute(string[] args) {
 	import std.c.linux.linux;
 	import syscalls;
@@ -127,21 +87,24 @@ int cmd_execute(string[] args) {
 		return 0;
 	}
 	
-	auto saveStatesFile = SaveStatesFile("savestates.db");
+	if(!process.isNull) {
+		stderr.writeln("Cannot spawn process: a process is already being traced.");
+		return 1;
+	}
 	
-	auto proc = spawn(args);
-	proc.tracer.resume();
+	process = spawn(args);
+	process.tracer.resume();
 	
 	// true if in syscall
 	bool inSyscall = false;
 	// true if we got SIGTRAP in a syscall and we should stop when the syscall exits.
 	bool shouldStop = false;
 	
-	auto commands = CommandInterpreter(saveStatesFile, proc);
+	auto commands = CommandInterpreter();
 	
 	try {
 		while(true) {
-			auto ev = proc.tracer.wait();
+			auto ev = process.tracer.wait();
 			final switch(ev) {
 			case WaitEvent.PAUSE:
 				if(inSyscall)
@@ -150,12 +113,12 @@ int cmd_execute(string[] args) {
 					shouldStop = true;
 				else
 					commands.doCommands();
-				proc.tracer.resume();
+				process.tracer.resume();
 				break;
 			case WaitEvent.SYSCALL:
 				if(!inSyscall) {
 					// entering syscall
-					//writeln("+ syscall: ", proc.tracer.getSyscall().to!string);
+					//writeln("+ syscall: ", process.tracer.getSyscall().to!string);
 					inSyscall = true;
 				} else {
 					// exiting syscall
@@ -165,7 +128,7 @@ int cmd_execute(string[] args) {
 						shouldStop = false;
 					}
 				}
-				proc.tracer.resume();
+				process.tracer.resume();
 				break;
 			}
 		}

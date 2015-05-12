@@ -11,8 +11,18 @@ import d2sqlite3;
 
 import models;
 
+/// Returns true if the database is in autocommit mode
 bool isAutoCommit(ref Database db) {
 	return sqlite3_get_autocommit(db.handle) != 0;
+}
+
+/// Mixin: Begins and commits/rollbacks transaction on a save file.
+template Transaction(alias savefile) {
+	enum Transaction = q{
+		FILE.db.begin();
+		scope(success) FILE.db.commit();
+		scope(failure) if(!FILE.db.isAutoCommit) FILE.db.rollback();
+	}.replace("FILE", __traits(identifier, savefile));
 }
 
 /**

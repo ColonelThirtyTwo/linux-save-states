@@ -61,7 +61,7 @@ in {
 /// Structure for tracing a process using ptrace.
 /// Create by using `spawnTraced`
 struct ProcTracer {
-	immutable pid_t pid;
+	pid_t pid;
 	
 	private this(pid_t pid) {
 		this.pid = pid;
