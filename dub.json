@@ -3,9 +3,21 @@
 	"description": "PC game TAS tools for Linux",
 	"license": "public domain",
 	"authors": ["Alex 'Colonel Thirty Two' Parrill"],
+	"targetType": "executable",
 	"libs": ["sqlite3"],
 	"stringImportPaths": ["./resources/"],
 	"dependencies": {
 		"d2sqlite3": "~>0.7.1",
-	}
+	},
+	
+	"configurations": [
+		{
+			"name": "with-linenoise",
+			"versions": ["LineNoise"],
+			"libs": ["linenoise"]
+		},
+		{
+			"name": "no-linenoise"
+		}
+	]
 }

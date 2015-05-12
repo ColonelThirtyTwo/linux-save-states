@@ -3,10 +3,11 @@ module commands.execute;
 import std.stdio;
 import std.conv : to, ConvException;
 import std.c.linux.linux;
-import std.string : chomp;
+import std.string : chomp, toStringz, fromStringz;
 import std.algorithm;
 import std.range;
 import std.typetuple;
+import std.exception : assumeWontThrow;
 
 import d2sqlite3;
 
@@ -14,18 +15,30 @@ import commands : CommandName, Help, CliOnly;
 import models;
 import procinfo;
 import savefile;
+version(LineNoise) import linenoise;
 
 import allcmds = commands.all;
 import global;
 
 private struct CommandInterpreter {
 	void doCommands() {
+		version(LineNoise)
+			linenoiseSetCompletionCallback(&completer);
+		
 		this.doLoop = true;
 		writeln("-- Paused --");
 		while(doLoop) {
-			write("> ");
-			auto args = readln()
-				.chomp("\n")
+			string line;
+			version(LineNoise) {
+				line = linenoise.linenoise("> ").fromStringz.idup;
+				if(line.ptr is null)
+					break;
+			} else {
+				write("> ");
+				line = readln().chomp("\n");
+			}
+			
+			auto args = line
 				.splitter
 				.filter!(x => x.length > 0)
 				.array
@@ -67,6 +80,15 @@ private:
 			default:
 				writeln("Unknown command");
 				return 1;
+		}
+	}
+	
+	version(LineNoise) {
+		extern(C) static void completer(const(char)* argbuf, linenoiseCompletions* completions) nothrow {
+			string arg = assumeWontThrow(argbuf.fromStringz.idup);
+			([staticMap!(CommandName, allcmds.ShellCommands)] ~ ["c", "continue"])
+				.filter!(cmd => cmd.startsWith(arg))
+				.each!(cmd => linenoiseAddCompletion(completions, cmd.toStringz));
 		}
 	}
 }

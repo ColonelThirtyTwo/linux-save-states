@@ -27,7 +27,7 @@ alias AllCommands = Filter!(IsCommand,
 
 /// Names of commands who are accessible from the command line
 alias ProgCommands = Filter!(templateNot!IsShellOnly, AllCommands);
-/// Names of commands who are accessible from the tracer shell
+/// Names of commands who are accessible from the tracer shell. This excludes c[ontinue], as they don't have a backing command function.
 alias ShellCommands = Filter!(templateNot!IsCliOnly, AllCommands);
 
 /// Command-line help text
