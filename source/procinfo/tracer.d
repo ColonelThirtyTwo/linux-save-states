@@ -3,8 +3,10 @@ module procinfo.tracer;
 
 import std.conv : text, to;
 import std.exception : errnoEnforce;
+import std.path : absolutePath;
+import std.file : getcwd;
+import std.process : execvpe;
 import std.c.linux.linux;
-import std.process : execvp;
 import core.stdc.config : c_ulong, c_long;
 
 import syscalls;
@@ -35,8 +37,7 @@ in {
 			// Trace self
 			errnoEnforce(ptrace(PTraceRequest.PTRACE_TRACEME, 0, null, null) != -1);
 			// Execute
-			errnoEnforce(execvp(args[0], args) != 0);
-			assert(false);
+			errnoEnforce(execvpe(args[0], args, ["LD_PRELOAD="~absolutePath("libsavestates.so"), "LD_LIBRARY_PATH="~getcwd()]) != 0);
 		} catch(Exception ex) {
 			// Don't run destructors in forked process; closing the database would be dangerous
 			import std.stdio : stderr;
@@ -44,8 +45,8 @@ in {
 			
 			stderr.writeln(ex);
 			exit(1);
-			assert(false);
 		}
+		assert(false);
 	}
 	
 	// Not in fork; set up ptrace options

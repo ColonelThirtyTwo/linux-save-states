@@ -77,6 +77,10 @@ private:
 					doLoop = false;
 				return 0;
 			
+			case "q":
+			case "quit":
+				throw new QuitException();
+			
 			default:
 				writeln("Unknown command");
 				return 1;
@@ -154,6 +158,8 @@ int cmd_execute(string[] args) {
 				break;
 			}
 		}
+	} catch(QuitException ex) {
+		return 0;
 	} catch(TraceeExited ex) {
 		writeln("+ exited with status ", ex.exitCode);
 		return ex.exitCode;
@@ -162,4 +168,12 @@ int cmd_execute(string[] args) {
 		return 2;
 	}
 	assert(false);
+}
+
+/// Thrown by q[uit] to terminate the loop
+final class QuitException : Exception {
+	//this(string msg, string file = null, size_t line = 0)
+	this(string file=__FILE__, size_t line=__LINE__) {
+		super("quit", file, line);
+	}
 }
