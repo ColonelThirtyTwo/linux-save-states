@@ -3,13 +3,18 @@
 
 all: libsavestates.so test-progs/line-cat.exe test-progs/for-loop.exe test-progs/hello-world.exe
 
-libsavestates.so: source-c/injection/injection.c
-	gcc -Wall -I ./resources/ -std=gnu99 -shared -g -fPIC -o $@ $<
+libsavestates.so: source-c/injection/injection.o source-c/injection/injection.asm.o source-c/injection/injection.ld
+	ld -shared -T source-c/injection/injection.ld -o $@ source-c/injection/injection.asm.o source-c/injection/injection.o
+
+source-c/injection/injection.o: source-c/injection/injection.c
+	gcc -Wall -nostdlib -c -I ./resources/ -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC -o $@ $+
+source-c/injection/injection.asm.o: source-c/injection/injection.x64.S
+	nasm -f elf64 -o $@ $+
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
-	gcc -std=gnu99 -Wall -L . -g -o $@ $< -l savestates
+	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
 
 clean:
-	rm -f libsavestates.so test-progs/*.exe
+	rm -f libsavestates.so source-c/injection/*.o test-progs/*.exe
 
 .PHONY: all clean
