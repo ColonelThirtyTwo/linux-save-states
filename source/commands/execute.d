@@ -90,7 +90,8 @@ private:
 	version(LineNoise) {
 		extern(C) static void completer(const(char)* argbuf, linenoiseCompletions* completions) nothrow {
 			string arg = assumeWontThrow(argbuf.fromStringz.idup);
-			([staticMap!(CommandName, allcmds.ShellCommands)] ~ ["c", "continue"])
+			([staticMap!(CommandName, allcmds.ShellCommands)]
+				~ ["c", "continue", "h", "help", "q", "quit"])
 				.filter!(cmd => cmd.startsWith(arg))
 				.each!(cmd => linenoiseAddCompletion(completions, cmd.toStringz));
 		}

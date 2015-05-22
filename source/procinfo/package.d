@@ -51,6 +51,7 @@ struct ProcInfo {
 	/// Loads a state from a SaveState object to the process' state.
 	/// The process should be in a ptrace-stop.
 	void loadState(in SaveState state) {
+		this.setBrk(state.brk);
 		writeMemoryMaps(pid, state.maps.filter!(x => x.contents.ptr != null));
 		tracer.setRegisters(state.registers);
 		loadFiles(this, state.files);

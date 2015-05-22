@@ -11,6 +11,9 @@ import std.range;
 import std.c.linux.linux : pid_t;
 
 import models;
+import procinfo : ProcInfo;
+import procinfo.cmdpipe : Wrapper2AppCmd;
+import procinfo.tracer : WaitEvent;
 
 /// Reads memory maps from a file and returns a range.
 auto readMemoryMaps(pid_t pid) {
@@ -39,6 +42,17 @@ if(isInputRange!Range && is(ElementType!Range : const(MemoryMap))) {
 		memFile.seek(map.begin);
 		memFile.rawWrite(map.contents);
 	}
+}
+
+/// Sets the program break
+void setBrk()(auto ref ProcInfo proc, ulong addr) {
+	assert(addr <= size_t.max);
+	
+	proc.tracer.resume();
+	proc.commandPipe.write(Wrapper2AppCmd.CMD_SETHEAP);
+	proc.commandPipe.write(cast(void*) addr);
+	while(proc.tracer.wait() != WaitEvent.PAUSE)
+		proc.tracer.resume();
 }
 
 // ///////////////////////////////////////////////////////////////////////
@@ -72,7 +86,7 @@ if(isInputRange!T && is(ElementType!T : MemoryMap)) {
 	}
 }
 
-auto mapLoaderRange(T)(T range, File memFile) {
+private auto mapLoaderRange(T)(T range, File memFile) {
 	return MapLoaderRange!T(range, memFile);
 }
 

@@ -85,11 +85,11 @@ __attribute__((visibility("hidden"))) int _lss_one_command() {
 	if(cmd == CMD_CONTINUE)
 		return 1;
 	else if(cmd == CMD_SETHEAP) {
-		void* newPtr;
-		readData(TRACEE_READ_FD, &newPtr, sizeof(void*));
+		void* brkPtr;
+		readData(TRACEE_READ_FD, &brkPtr, sizeof(void*));
 		
-		int code = syscall1(SYS_brk, newPtr);
-		if(code == -1)
+		void* newBrk = (void*) syscall1(SYS_brk, brkPtr);
+		if(newBrk < brkPtr)
 			abort();
 	} else if(cmd == CMD_OPEN) {
 		// Read filename

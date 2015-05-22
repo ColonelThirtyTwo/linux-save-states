@@ -1,7 +1,14 @@
 # Makefile for the injected DLL, shellcode, and test C programs.
 # To build the tracer, run `dub build`
 
-all: libsavestates.so test-progs/line-cat.exe test-progs/for-loop.exe test-progs/hello-world.exe
+TESTPROGS=\
+	test-progs/line-cat.exe \
+	test-progs/for-loop.exe \
+	test-progs/hello-world.exe \
+	test-progs/brk.exe \
+
+
+all: libsavestates.so $(TESTPROGS)
 
 libsavestates.so: source-c/injection/injection.o source-c/injection/injection.asm.o source-c/injection/injection.ld
 	ld -shared -T source-c/injection/injection.ld -o $@ source-c/injection/injection.asm.o source-c/injection/injection.o

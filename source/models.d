@@ -1,5 +1,7 @@
 module models;
 
+import std.algorithm;
+import std.range;
 import std.typecons : Nullable;
 
 public import procinfo.tracer : Registers;
@@ -20,6 +22,21 @@ struct SaveState {
 	
 	/// Saved open files
 	FileDescriptor[] files;
+	
+	/// Returns the location of the program break (see brk (2))
+	ulong brk() @property const pure {
+		auto heapMap = maps.find!(x => x.name == "[heap]");
+		if(!heapMap.empty)
+			return heapMap.front.end;
+		
+		// This is a bit of a hack. If there's no heap yet, assume it starts after the program's data segment
+		// (which is the end of the first map that is writable and private)
+		auto dataSegment = maps
+			.filter!(x => x.flags == (MemoryMapFlags.READ | MemoryMapFlags.WRITE | MemoryMapFlags.PRIVATE))
+			.minPos!((a,b) => a.begin < b.begin);
+		assert(!dataSegment.empty);
+		return dataSegment.front.end;
+	}
 }
 
 /// Memory map flags
