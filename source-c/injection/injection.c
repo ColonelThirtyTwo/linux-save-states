@@ -55,15 +55,8 @@ static void readData(int fd, void* out, size_t size) {
 		abort();
 }
 
-/*static void test_function() {
-	unsigned char arr[512];
-	for(int i=0; i<512; i++)
-		arr[i] = 0;
-	((void)arr);
-}*/
-
 /// Processes one command from the command pipe
-__attribute__((visibility("hidden"))) int _lss_one_command() {
+int _lss_one_command() {
 	// Get a command
 	int32_t cmdInt;
 	readData(TRACEE_READ_FD, &cmdInt, sizeof(int32_t));

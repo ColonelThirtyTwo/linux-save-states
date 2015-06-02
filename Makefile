@@ -7,14 +7,19 @@ TESTPROGS=\
 	test-progs/hello-world.exe \
 	test-progs/brk.exe \
 
+OBJS = \
+	source-c/injection/injection.o \
+	source-c/injection/injection.asm.o \
+
+CFLAGS = -Wall -Os -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
 
 all: libsavestates.so $(TESTPROGS)
 
-libsavestates.so: source-c/injection/injection.o source-c/injection/injection.asm.o source-c/injection/injection.ld
-	ld -shared -T source-c/injection/injection.ld -o $@ source-c/injection/injection.asm.o source-c/injection/injection.o
+libsavestates.so: $(OBJS) source-c/injection/injection.ld
+	ld -shared -T source-c/injection/injection.ld -o $@ $(OBJS)
 
 source-c/injection/injection.o: source-c/injection/injection.c
-	gcc -Wall -nostdlib -c -I ./resources/ -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC -o $@ $+
+	gcc $(CFLAGS) -o $@ $+
 source-c/injection/injection.asm.o: source-c/injection/injection.x64.S
 	nasm -f elf64 -o $@ $+
 

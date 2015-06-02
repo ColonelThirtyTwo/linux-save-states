@@ -6,7 +6,7 @@
 #define TRACEE_WRITE_FD 501
 
 /// Pauses the program, allowing the state to be saved, and reads commands from the tracer.
-void lss_pause(void);
+__attribute__((visibility("default"))) void lss_pause(void);
 
 typedef enum {
 	#include "wrapper2appcmds"
