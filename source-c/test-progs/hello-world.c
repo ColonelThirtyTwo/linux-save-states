@@ -7,8 +7,9 @@
 #include <signal.h>
 #include <sys/mman.h>
 
-#define TESTSTRING ("Hello world, this is a test")
+extern void lss_pause(void);
 
+#define TESTSTRING ("Hello world, this is a test")
 static char somestring[1024] = TESTSTRING;
 
 int main() {
@@ -16,7 +17,7 @@ int main() {
 	memcpy(buffer, TESTSTRING, sizeof(TESTSTRING));
 	
 	printf("PID: %d\n", getpid());
-	kill(getpid(), SIGSTOP);
+	lss_pause();
 	
 	printf("Heap String: %s\n", buffer);
 	printf("Stack String: %s\n", somestring);

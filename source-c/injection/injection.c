@@ -11,26 +11,13 @@
 #include <bits/sigaction.h>
 #include <linux/fs.h>
 
+#include "tracee.h"
+
 #ifdef __x86_64__
 	#include "syscalls.x64.c"
 #else
 	#include "syscalls.i86.c"
 #endif
-
-#define TRACEE_READ_FD 500
-#define TRACEE_WRITE_FD 501
-
-void lss_pause(void);
-
-typedef enum {
-	#include "wrapper2appcmds"
-	W2AC_END
-} Wrapper2AppCmd;
-
-typedef enum {
-	#include "app2wrappercmds"
-	A2WC_END
-} App2WrapperCmd;
 
 /// raise implementation, taken from musl
 static int raise(int sig)
