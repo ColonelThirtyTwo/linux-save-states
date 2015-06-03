@@ -48,15 +48,26 @@ __attribute__((noreturn)) static void abort() {
 	while(1) {}
 }
 
+__attribute__((noreturn)) void fail(const char* msg) {
+	size_t len = 0;
+	while(msg[len++] != 0);
+	
+	syscall3(SYS_write, 2, "lss: ", sizeof("lss: ")-1);
+	syscall3(SYS_write, 2, msg, len-1);
+	syscall3(SYS_write, 2, "\n", 1);
+	
+	abort();
+}
+
 /// Reads a value from the specified file descriptor and aborts on errors.
 static void readData(int fd, void* out, size_t size) {
 	ssize_t numRead = syscall3(SYS_read, fd, out, size);
 	if(numRead != size)
-		abort();
+		fail("could not read from the command pipe");
 }
 
 /// Processes one command from the command pipe
-int _lss_one_command() {
+int doOneCommand() {
 	// Get a command
 	int32_t cmdInt;
 	readData(TRACEE_READ_FD, &cmdInt, sizeof(int32_t));
@@ -70,7 +81,7 @@ int _lss_one_command() {
 		
 		void* newBrk = (void*) syscall1(SYS_brk, brkPtr);
 		if(newBrk < brkPtr)
-			abort();
+			fail("could not set program break");
 	} else if(cmd == CMD_OPEN) {
 		// Read filename
 		uint32_t fnameLen;
@@ -94,28 +105,28 @@ int _lss_one_command() {
 		// Open the file to some arbitrary FD
 		int tempFd = syscall2(SYS_open, fname, flags);
 		if(tempFd < 0)
-			abort();
+			fail("could not open saved file descriptor");
 		
 		// Move FD to the one we want.
 		if(tempFd != fd) {
 			if(syscall2(SYS_dup2, tempFd, fd) < 0)
-				abort();
+				fail("could not move saved file descriptor");
 			if(syscall1(SYS_close, tempFd) < 0)
-				abort();
+				fail("could not close temporary file descriptor");
 		}
 		
 		// Seek
 		off_t seekedPos = syscall3(SYS_lseek, fd, seekPos, SEEK_SET);
 		if(seekedPos != seekPos)
-			abort();
+			fail("could not seek file");
 	} else if(cmd == CMD_CLOSE) {
 		int fd;
 		readData(TRACEE_READ_FD, &fd, sizeof(int));
 		
 		if(syscall1(SYS_close, fd) < 0)
-			abort();
+			fail("could not close file");
 	} else {
-		abort();
+		fail("unrecognized command");
 	}
 	return 0;
 }
