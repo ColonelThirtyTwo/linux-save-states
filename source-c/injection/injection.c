@@ -10,6 +10,7 @@
 #include <bits/signum.h>
 #include <bits/sigaction.h>
 #include <linux/fs.h>
+#include <sys/mman.h>
 
 #include "tracee.h"
 
@@ -18,6 +19,8 @@
 #else
 	#include "syscalls.i86.c"
 #endif
+
+TraceeData* traceeData = NULL;
 
 /// raise implementation, taken from musl
 static int raise(int sig)
@@ -64,6 +67,20 @@ static void readData(int fd, void* out, size_t size) {
 	ssize_t numRead = syscall3(SYS_read, fd, out, size);
 	if(numRead != size)
 		fail("could not read from the command pipe");
+}
+
+/// Called at startup
+void init() {
+	if(traceeData != NULL)
+		return;
+	
+	traceeData = (void*) syscall6(SYS_mmap, NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+	if(traceeData == MAP_FAILED)
+		fail("could not allocate tracee data");
+	
+	traceeData->version = TRACEE_DATA_VERSION;
+	
+	syscall3(SYS_write, 2, "lss debug: initialized\n", sizeof("lss debug: initialized\n")-1);
 }
 
 /// Processes one command from the command pipe

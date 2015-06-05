@@ -11,12 +11,12 @@ OBJS = \
 	source-c/injection/injection.o \
 	source-c/injection/injection.asm.o \
 
-CFLAGS = -Wall -Os -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
+CFLAGS = -Wall -g -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
 
 all: libsavestates.so $(TESTPROGS)
 
 libsavestates.so: $(OBJS) source-c/injection/injection.ld
-	ld -shared -T source-c/injection/injection.ld -o $@ $(OBJS)
+	ld -shared -T source-c/injection/injection.ld -init init -o $@ $(OBJS)
 
 source-c/injection/injection.o: source-c/injection/injection.c
 	gcc $(CFLAGS) -o $@ $+

@@ -12,3 +12,4 @@ CMD_CONTINUE = 1, // Exit out of the command loop.
 CMD_SETHEAP = 2,  // Call brk to set the end of the heap. Args: ptr heapend
 CMD_OPEN = 3,     // Opens a file. Args: string fname, int fd, int flags, ulong seekpos
 CMD_CLOSE = 4,    // Closes a file. Args: int fd
+CMD_SETCLOCK = 5, // Sets a clock. Args: int type (CLOCK_REALTIME or CLOCK_MONOTONIC), ulong seconds, ulong nanoseconds

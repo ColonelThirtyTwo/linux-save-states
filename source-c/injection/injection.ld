@@ -3,8 +3,9 @@ SECTIONS {
 	.text 0x0 : {
 		_begin_text = .;
 		
-		source-c/injection/injection.o(.text)
+		source-c/injection/injection.o(.text*)
 		. = 0x090900;
+		
 		source-c/injection/injection.asm.o(.text)
 		. = 0x100000;
 		
@@ -15,10 +16,8 @@ SECTIONS {
 	.data 0x100000 : {
 		_begin_data = .;
 		
-		injectionData = .;
-		QUAD(0)
-		
 		*(.data)
+		*(.bss)
 		. = 0x000500;
 		
 		_end_data = .;
