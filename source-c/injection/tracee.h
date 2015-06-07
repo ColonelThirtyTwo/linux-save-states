@@ -3,6 +3,7 @@
 #define _TRACEE_H
 
 #include <stdint.h>
+#include <sys/types.h>
 #include <bits/time.h>
 
 #define TRACEE_DATA_VERSION 1
@@ -26,9 +27,13 @@ typedef struct {
 	uint64_t version;
 	
 	struct {
-		struct timeval realtime;
-		struct timeval monotonic;
+		struct timespec realtime;
+		struct timespec monotonic;
+		
+		time_t timestamp;
 	} clocks;
+	
+	
 } TraceeData;
 
 extern TraceeData* traceeData;

@@ -4,6 +4,7 @@ SECTIONS {
 		_begin_text = .;
 		
 		source-c/injection/injection.o(.text*)
+		source-c/injection/overrides.o(.text*)
 		. = 0x090900;
 		
 		source-c/injection/injection.asm.o(.text)

@@ -10,8 +10,9 @@ TESTPROGS=\
 OBJS = \
 	source-c/injection/injection.o \
 	source-c/injection/injection.asm.o \
+	source-c/injection/overrides.o \
 
-CFLAGS = -Wall -g -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
+CFLAGS = -Wall -Os -g -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
 
 all: libsavestates.so $(TESTPROGS)
 
@@ -22,6 +23,8 @@ source-c/injection/injection.o: source-c/injection/injection.c
 	gcc $(CFLAGS) -o $@ $+
 source-c/injection/injection.asm.o: source-c/injection/injection.x64.S
 	nasm -f elf64 -o $@ $+
+source-c/injection/overrides.o: source-c/injection/overrides.c
+	gcc $(CFLAGS) -o $@ $+
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates

@@ -142,6 +142,27 @@ int doOneCommand() {
 		
 		if(syscall1(SYS_close, fd) < 0)
 			fail("could not close file");
+	} else if(cmd == CMD_SETCLOCK) {
+		int type;
+		uint64_t seconds, nanoseconds;
+		readData(TRACEE_READ_FD, &type, sizeof(type));
+		readData(TRACEE_READ_FD, &seconds, sizeof(seconds));
+		readData(TRACEE_READ_FD, &nanoseconds, sizeof(nanoseconds));
+		
+		if(type == CLOCK_REALTIME) {
+			traceeData->clocks.realtime.tv_sec = seconds;
+			traceeData->clocks.realtime.tv_nsec = nanoseconds;
+		} else if(type == CLOCK_MONOTONIC) {
+			traceeData->clocks.monotonic.tv_sec = seconds;
+			traceeData->clocks.monotonic.tv_nsec = nanoseconds;
+		} else {
+			fail("unrecognized clock type");
+		}
+	} else if(cmd == CMD_SETTIME) {
+		uint64_t timestamp;
+		readData(TRACEE_READ_FD, &timestamp, sizeof(timestamp));
+		
+		traceeData->clocks.timestamp = timestamp;
 	} else {
 		fail("unrecognized command");
 	}
