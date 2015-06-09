@@ -66,28 +66,16 @@ auto readFiles(pid_t pid) {
 /// stdin/out/err and the command pipes are skipped.
 void loadFiles(Range)(auto ref ProcInfo proc, Range newFiles)
 if(isInputRange!Range && is(ElementType!Range : FileDescriptor)) {
-	// Need to resume the tracee before writing to the pipe, so that it can drain the pipe
-	// if it overfills.
-	foreach(fd; getFileDescriptors(proc.pid)) {
-		proc.tracer.resume();
-		proc.commandPipe.write(Wrapper2AppCmd.CMD_CLOSE);
-		proc.commandPipe.write!int(fd);
-		
-		while(proc.tracer.wait() != WaitEvent.PAUSE)
-			proc.tracer.resume();
-	}
-	
-	foreach(file; newFiles) {
-		proc.tracer.resume();
-		proc.commandPipe.write(Wrapper2AppCmd.CMD_OPEN);
-		proc.commandPipe.write!string(file.fileName);
-		proc.commandPipe.write!int(file.descriptor);
-		proc.commandPipe.write!int(file.flags);
-		proc.commandPipe.write!ulong(file.pos);
-		
-		while(proc.tracer.wait() != WaitEvent.PAUSE)
-			proc.tracer.resume();
-	}
+	getFileDescriptors(proc.pid)
+		.each!((int fd) => proc.write(Wrapper2AppCmd.CMD_CLOSE, fd));
+	newFiles
+		.each!(file => proc.write(
+			Wrapper2AppCmd.CMD_OPEN,
+			file.fileName,
+			file.descriptor,
+			file.flags,
+			file.pos
+		));
 }
 
 /// Returns a range of int file descriptors.

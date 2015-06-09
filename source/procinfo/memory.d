@@ -48,11 +48,10 @@ if(isInputRange!Range && is(ElementType!Range : const(MemoryMap))) {
 void setBrk()(auto ref ProcInfo proc, ulong addr) {
 	assert(addr <= size_t.max);
 	
-	proc.tracer.resume();
-	proc.commandPipe.write(Wrapper2AppCmd.CMD_SETHEAP);
-	proc.commandPipe.write(cast(void*) addr);
-	while(proc.tracer.wait() != WaitEvent.PAUSE)
-		proc.tracer.resume();
+	proc.write(
+		Wrapper2AppCmd.CMD_SETHEAP,
+		cast(void*) addr
+	);
 }
 
 // ///////////////////////////////////////////////////////////////////////

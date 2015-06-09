@@ -7,15 +7,6 @@ import savefile;
 import commands;
 import global;
 
-/*@("")
-@("Resumes execution of the program.")
-int cmd_continue(string[] args) {
-	if(args.length != 0)
-		return writeln("Usage: c[ontinue]");
-	doLoop = false;
-}
-alias cmd_c = cmd_continue;*/
-
 @("<label>")
 @(`Saves the state.`)
 @ShellOnly
