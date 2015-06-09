@@ -5,6 +5,8 @@
 
 #include "tracee.h"
 
+#pragma GCC visibility push(default)
+
 int clock_getres(clockid_t clk_id, struct timespec *res) {
 	if(res == NULL)
 		return 0;
@@ -23,8 +25,8 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
 		tp->tv_sec = traceeData->clocks.realtime.tv_sec;
 		tp->tv_nsec = traceeData->clocks.realtime.tv_nsec;
 	} else if(clk_id == CLOCK_MONOTONIC) {
-		tp->tv_sec = traceeData->clocks.realtime.tv_sec;
-		tp->tv_nsec = traceeData->clocks.realtime.tv_nsec;
+		tp->tv_sec = traceeData->clocks.monotonic.tv_sec;
+		tp->tv_nsec = traceeData->clocks.monotonic.tv_nsec;
 	} else {
 		tp->tv_sec = 0;
 		tp->tv_nsec = 0;
@@ -37,5 +39,7 @@ int clock_settime(clockid_t clk_id, const struct timespec *tp) {
 }
 
 time_t time(time_t *t) {
-	return traceeData->clocks.timestamp;
+	return traceeData->clocks.realtime.tv_sec;
 }
+
+#pragma GCC visibility pop

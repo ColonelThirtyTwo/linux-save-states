@@ -37,7 +37,10 @@ in {
 			// Trace self
 			errnoEnforce(ptrace(PTraceRequest.PTRACE_TRACEME, 0, null, null) != -1);
 			// Execute
-			errnoEnforce(execvpe(args[0], args, ["LD_PRELOAD="~absolutePath("libsavestates.so"), "LD_LIBRARY_PATH="~getcwd()]) != 0);
+			errnoEnforce(execvpe(args[0], args, [
+				"LD_PRELOAD="~absolutePath("libsavestates.so"),
+				"LD_LIBRARY_PATH="~getcwd()
+			]) != 0);
 		} catch(Exception ex) {
 			// Don't run destructors in forked process; closing the database would be dangerous
 			import std.stdio : stderr;

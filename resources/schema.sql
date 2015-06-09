@@ -2,11 +2,24 @@ PRAGMA foreign_keys = ON;
 
 BEGIN;
 
+-- See models.d for documentation of what each of these tables means.
+
+CREATE TABLE IF NOT EXISTS Settings (
+	name TEXT PRIMARY KEY NOT NULL,
+	value NONE
+);
+INSERT OR IGNORE INTO Settings VALUES ('frameRate', 16666666); -- 1/60 seconds in nanoseconds
+
 CREATE TABLE IF NOT EXISTS SaveStates (
 	rowid INTEGER PRIMARY KEY AUTOINCREMENT, -- rowid is used to order, so make it monotonically increasing
 	label TEXT NOT NULL UNIQUE,
 	
-	registers BLOB NOT NULL
+	registers BLOB NOT NULL,
+	
+	realtimeSeconds INT NOT NULL,
+	realtimeNanoseconds INT NOT NULL,
+	monotonicSeconds INT NOT NULL,
+	monotonicNanoseconds INT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS MemoryMappings (

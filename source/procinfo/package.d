@@ -2,6 +2,7 @@ module procinfo;
 
 import std.regex;
 import std.range;
+import std.typecons;
 import std.c.linux.linux : pid_t;
 import std.algorithm : filter;
 
@@ -11,6 +12,7 @@ public import procinfo.memory;
 public import procinfo.tracer;
 public import procinfo.cmdpipe;
 public import procinfo.files;
+public import procinfo.time;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
@@ -30,6 +32,7 @@ ProcInfo spawn(string[] args) {
 struct ProcInfo {
 	ProcTracer tracer;
 	CommandPipe commandPipe;
+	Time time;
 	
 	/// Traced process PID.
 	pid_t pid() @property {
@@ -55,6 +58,20 @@ struct ProcInfo {
 		writeMemoryMaps(pid, state.maps.filter!(x => x.contents.ptr != null));
 		tracer.setRegisters(state.registers);
 		loadFiles(this, state.files);
+		
+		time.loadTime(state);
+		time.updateTime(this);
+	}
+	
+	/// Sends a command through the command pipe to the tracee.
+	void write(T...)(T vals) {
+		this.tracer.resume();
+		
+		foreach(val; vals)
+			this.commandPipe.write(val);
+		
+		while(this.tracer.wait() != WaitEvent.PAUSE)
+			this.tracer.resume();
 	}
 }
 

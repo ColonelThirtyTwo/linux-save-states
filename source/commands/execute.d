@@ -46,6 +46,8 @@ private struct CommandInterpreter {
 			this.doCommand(args);
 		}
 		
+		process.time.incrementFrame();
+		process.time.updateTime(process);
 		process.commandPipe.write(Wrapper2AppCmd.CMD_CONTINUE);
 	}
 	

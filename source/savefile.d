@@ -43,10 +43,14 @@ struct SaveStatesFile {
 	 * You probably want to run this in a transaction.
 	 */ 
 	void writeState()(auto ref SaveState state) {
-		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?, ?, ?);`);
+		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?,?,?,?,?,?,?);`);
 		stmt.bind(1, state.id);
 		stmt.bind(2, state.name);
 		stmt.bind(3, (cast(ubyte*) (&state.registers))[0..Registers.sizeof]);
+		stmt.bind(4, state.realtime.sec);
+		stmt.bind(5, state.realtime.nsec);
+		stmt.bind(6, state.monotonic.sec);
+		stmt.bind(7, state.monotonic.nsec);
 		stmt.execute();
 		
 		state.id = db.lastInsertRowid;
@@ -116,6 +120,8 @@ struct SaveStatesFile {
 			id: results.front.peek!ulong(0),
 			name: results.front.peek!string(1),
 			registers: *(cast(Registers*) registersBytes),
+			realtime: {sec: results.front.peek!ulong(3), nsec: results.front.peek!ulong(4)},
+			monotonic: {sec: results.front.peek!ulong(5), nsec: results.front.peek!ulong(6)},
 		};
 		
 		stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);
@@ -154,6 +160,24 @@ struct SaveStatesFile {
 		stmt.bind(2, map.id.get);
 		stmt.execute();
 		assert(db.changes == 1);
+	}
+	
+	/// Sets a value in the Settings table, which is a simple key/value store.
+	void opIndexAssign(T)(T value, string name) {
+		auto stmt = db.prepare(`INSERT OR REPLACE INTO Settings VALUES (?,?);`);
+		stmt.bind(1, name);
+		stmt.bind(2, value);
+		stmt.execute();
+	}
+	
+	/// Gets a value in the Settings table, which is a simple key/value store.
+	ColumnData opIndex(string name) {
+		auto stmt = db.prepare(`SELECT value FROM Settings WHERE name = ?;`);
+		stmt.bind(1, name);
+		auto results = stmt.execute();
+		if(results.empty)
+			return ColumnData.init;
+		return results.front.front;
 	}
 	
 	private MemoryMap readMemoryMap(Row row) {

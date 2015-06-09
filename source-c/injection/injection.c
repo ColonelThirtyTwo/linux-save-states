@@ -158,11 +158,6 @@ int doOneCommand() {
 		} else {
 			fail("unrecognized clock type");
 		}
-	} else if(cmd == CMD_SETTIME) {
-		uint64_t timestamp;
-		readData(TRACEE_READ_FD, &timestamp, sizeof(timestamp));
-		
-		traceeData->clocks.timestamp = timestamp;
 	} else {
 		fail("unrecognized command");
 	}

@@ -26,14 +26,11 @@ typedef struct {
 	/// Version of the data. May be different than TRACEE_DATA_VERSION if an old state is loaded.
 	uint64_t version;
 	
+	/// Clocks for clock_gettime (2). The realtime clock is also used for time (2).
 	struct {
 		struct timespec realtime;
 		struct timespec monotonic;
-		
-		time_t timestamp;
 	} clocks;
-	
-	
 } TraceeData;
 
 extern TraceeData* traceeData;

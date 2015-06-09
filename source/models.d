@@ -6,6 +6,10 @@ import std.typecons : Nullable;
 
 public import procinfo.tracer : Registers;
 
+struct Clock {
+	ulong sec, nsec;
+}
+
 /// Save state
 struct SaveState {
 	/// ID of state. Null if the state isn't saved.
@@ -22,6 +26,11 @@ struct SaveState {
 	
 	/// Saved open files
 	FileDescriptor[] files;
+	
+	/// Saved clocks
+	Clock realtime;
+	/// ditto
+	Clock monotonic;
 	
 	/// Returns the location of the program break (see brk (2))
 	ulong brk() @property const pure {

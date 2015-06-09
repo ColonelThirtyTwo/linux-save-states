@@ -6,6 +6,7 @@ TESTPROGS=\
 	test-progs/for-loop.exe \
 	test-progs/hello-world.exe \
 	test-progs/brk.exe \
+	test-progs/time.exe \
 
 OBJS = \
 	source-c/injection/injection.o \

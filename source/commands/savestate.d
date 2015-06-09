@@ -24,9 +24,13 @@ int cmd_save(string[] args) {
 		writeln("Usage: s[ave] <label>");
 		return 1;
 	}
-	mixin(Transaction!saveFile);
 	
-	saveFile.writeState(process.saveState(args[0]));
+	{
+		// Put this in a new scope so that "state saved" prints when the transaction is commited and the state
+		// is actually saved.
+		mixin(Transaction!saveFile);
+		saveFile.writeState(process.saveState(args[0]));
+	}
 	
 	writeln("state saved");
 	return 0;

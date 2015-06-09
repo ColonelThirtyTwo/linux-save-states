@@ -17,12 +17,14 @@ private template Import(string name) {
 mixin(Import!"savefile");
 mixin(Import!"execute");
 mixin(Import!"savestate");
+mixin(Import!"time");
 
 /// Names of all known commands
 alias AllCommands = Filter!(IsCommand,
 	__traits(allMembers, cmds_savefile),
 	__traits(allMembers, cmds_execute),
 	__traits(allMembers, cmds_savestate),
+	__traits(allMembers, cmds_time),
 );
 
 /// Names of commands who are accessible from the command line
