@@ -9,28 +9,28 @@ TESTPROGS=\
 	test-progs/time.exe \
 
 OBJS = \
-	source-c/injection/injection.o \
-	source-c/injection/injection.asm.o \
-	source-c/injection/overrides.o \
+	source-c/tracee/tracee.o \
+	source-c/tracee/tracee.asm.o \
+	source-c/tracee/overrides.o \
 
 CFLAGS = -Wall -Os -g -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
 
 all: libsavestates.so $(TESTPROGS)
 
-libsavestates.so: $(OBJS) source-c/injection/injection.ld
-	ld -shared -T source-c/injection/injection.ld -init init -o $@ $(OBJS)
+libsavestates.so: $(OBJS) source-c/tracee/tracee.ld
+	ld -shared -T source-c/tracee/tracee.ld -init init -o $@ $(OBJS)
 
-source-c/injection/injection.o: source-c/injection/injection.c
+source-c/tracee/tracee.o: source-c/tracee/tracee.c
 	gcc $(CFLAGS) -o $@ $+
-source-c/injection/injection.asm.o: source-c/injection/injection.x64.S
+source-c/tracee/tracee.asm.o: source-c/tracee/tracee.x64.S
 	nasm -f elf64 -o $@ $+
-source-c/injection/overrides.o: source-c/injection/overrides.c
+source-c/tracee/overrides.o: source-c/tracee/overrides.c
 	gcc $(CFLAGS) -o $@ $+
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
 
 clean:
-	rm -f libsavestates.so source-c/injection/*.o test-progs/*.exe
+	rm -f libsavestates.so source-c/tracee/*.o test-progs/*.exe
 
 .PHONY: all clean

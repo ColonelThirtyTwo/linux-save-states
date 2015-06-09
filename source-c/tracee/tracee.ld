@@ -3,11 +3,11 @@ SECTIONS {
 	.text 0x0 : {
 		_begin_text = .;
 		
-		source-c/injection/injection.o(.text*)
-		source-c/injection/overrides.o(.text*)
+		source-c/tracee/tracee.o(.text*)
+		source-c/tracee/overrides.o(.text*)
 		. = 0x090900;
 		
-		source-c/injection/injection.asm.o(.text)
+		source-c/tracee/tracee.asm.o(.text)
 		. = 0x100000;
 		
 		_end_text = .;
