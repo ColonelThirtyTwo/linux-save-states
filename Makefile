@@ -21,11 +21,18 @@ libsavestates.so: $(OBJS) source-c/tracee/tracee.ld
 	ld -shared -T source-c/tracee/tracee.ld -init init -o $@ $(OBJS)
 
 source-c/tracee/tracee.o: source-c/tracee/tracee.c
-	gcc $(CFLAGS) -o $@ $+
+	gcc $(CFLAGS) -o $@ $<
 source-c/tracee/tracee.asm.o: source-c/tracee/tracee.x64.S
-	nasm -f elf64 -o $@ $+
+	nasm -f elf64 -o $@ $<
 source-c/tracee/overrides.o: source-c/tracee/overrides.c
-	gcc $(CFLAGS) -o $@ $+
+	gcc $(CFLAGS) -o $@ $<
+
+source-c/tracee/gl.o: source-c/tracee/gl.generated.c source-c/tracee/glcompsizes.h
+	gcc $(CFLAGS) -o $@ $<
+source-c/tracee/gl.generated.c: source-c/tracee/gl.xml ./gen-gl-wrappers.py
+	python3 ./gen-gl-wrappers.py source/gl.d $@ < $<
+source-c/tracee/gl.xml:
+	curl -sSf -z $@ -o $@ https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
@@ -33,4 +40,4 @@ test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 clean:
 	rm -f libsavestates.so source-c/tracee/*.o test-progs/*.exe
 
-.PHONY: all clean
+.PHONY: all clean .FORCE

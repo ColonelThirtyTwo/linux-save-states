@@ -12,3 +12,6 @@
 /linux-save-state
 /dub.userprefs
 /dub.selections.json
+/source-c/tracee/gl.generated.c
+/source-c/tracee/gl.xml
+/source/gl.d
