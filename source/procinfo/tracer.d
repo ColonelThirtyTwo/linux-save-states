@@ -1,16 +1,28 @@
 
 module procinfo.tracer;
 
+import std.algorithm;
+import std.range;
 import std.conv : text, to;
 import std.exception : errnoEnforce;
 import std.path : absolutePath;
 import std.file : getcwd;
-import std.process : execvpe;
+import std.process : execvpe, environment;
 import std.c.linux.linux;
 import core.stdc.config : c_ulong, c_long;
 
 import syscalls;
 import procinfo.cmdpipe;
+
+private string[] getTraceeEnv() {
+	auto envAA = environment.toAA();
+	envAA["LD_PRELOAD"] = absolutePath("libsavestates.so");
+	envAA["LD_LIBRARY_PATH"] = getcwd();
+	return envAA
+		.byPair
+		.map!(pair => pair[0] ~ "=" ~ pair[1])
+		.array;
+}
 
 
 /// Spawns a process in an environment suitable for TASing and traces it.
@@ -19,6 +31,8 @@ ProcTracer spawnTraced(string[] args, CommandPipe cmdpipe)
 in {
 	assert(args.length >= 1);
 } body {
+	auto env = getTraceeEnv();
+	
 	// Disable GC in case it uses signals, which would be caught by ptrace.
 	core.memory.GC.disable();
 	scope(exit) core.memory.GC.enable();
@@ -37,10 +51,7 @@ in {
 			// Trace self
 			errnoEnforce(ptrace(PTraceRequest.PTRACE_TRACEME, 0, null, null) != -1);
 			// Execute
-			errnoEnforce(execvpe(args[0], args, [
-				"LD_PRELOAD="~absolutePath("libsavestates.so"),
-				"LD_LIBRARY_PATH="~getcwd()
-			]) != 0);
+			errnoEnforce(execvpe(args[0], args, env) != 0);
 		} catch(Exception ex) {
 			// Don't run destructors in forked process; closing the database would be dangerous
 			import std.stdio : stderr;

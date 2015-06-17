@@ -12,13 +12,14 @@ OBJS = \
 	source-c/tracee/tracee.o \
 	source-c/tracee/tracee.asm.o \
 	source-c/tracee/overrides.o \
+	source-c/tracee/x/x.o \
 
-CFLAGS = -Wall -Os -g -nostdlib -c -I ./resources/ -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
+CFLAGS = -Wall -Os -g -nostdlib -c -I ./resources/ -I ./source-c/tracee -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
 
 all: libsavestates.so $(TESTPROGS)
 
 libsavestates.so: $(OBJS) source-c/tracee/tracee.ld
-	ld -shared -T source-c/tracee/tracee.ld -init init -o $@ $(OBJS)
+	ld -shared -T source-c/tracee/tracee.ld -init init -o $@ $(OBJS) -L /usr/lib/x86_64-linux-gnu/ -ldl
 
 source-c/tracee/tracee.o: source-c/tracee/tracee.c
 	gcc $(CFLAGS) -o $@ $<
@@ -26,18 +27,20 @@ source-c/tracee/tracee.asm.o: source-c/tracee/tracee.x64.S
 	nasm -f elf64 -o $@ $<
 source-c/tracee/overrides.o: source-c/tracee/overrides.c
 	gcc $(CFLAGS) -o $@ $<
-
-source-c/tracee/gl.o: source-c/tracee/gl.generated.c source-c/tracee/glcompsizes.h
+source-c/tracee/x/x.o: source-c/tracee/x/x.c
 	gcc $(CFLAGS) -o $@ $<
-source-c/tracee/gl.generated.c: source-c/tracee/gl.xml ./gen-gl-wrappers.py
+
+source-c/tracee/gl/gl.o: source-c/tracee/gl/gl.generated.c source-c/tracee/gl/glcompsizes.h
+	gcc $(CFLAGS) -o $@ $<
+source-c/tracee/gl/gl.generated.c: source-c/tracee/gl/gl.xml ./gen-gl-wrappers.py
 	python3 ./gen-gl-wrappers.py source/gl.d $@ < $<
-source-c/tracee/gl.xml:
+source-c/tracee/gl/gl.xml:
 	curl -sSf -z $@ -o $@ https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
 
 clean:
-	rm -f libsavestates.so source-c/tracee/*.o test-progs/*.exe
+	rm -f libsavestates.so $(OBJS) test-progs/*.exe
 
 .PHONY: all clean .FORCE

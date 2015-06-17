@@ -5,6 +5,7 @@ SECTIONS {
 		
 		source-c/tracee/tracee.o(.text*)
 		source-c/tracee/overrides.o(.text*)
+		source-c/tracee/x/x.o(.text*)
 		. = 0x090900;
 		
 		source-c/tracee/tracee.asm.o(.text)
@@ -14,7 +15,7 @@ SECTIONS {
 		FILL(0x0);
 	}
 	
-	.data 0x100000 : {
+	.data 0x101000 : {
 		_begin_data = .;
 		
 		*(.data)
@@ -25,8 +26,7 @@ SECTIONS {
 		FILL(0x0);
 	}
 	
-	/* Leave some space for .dynamic */
-	.rodata 0x101000 : {
+	.rodata 0x102000 : {
 		_begin_rodata = .;
 		
 		*(.rodata)

@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "tracee.h"
 
@@ -40,6 +41,23 @@ int clock_settime(clockid_t clk_id, const struct timespec *tp) {
 
 time_t time(time_t *t) {
 	return traceeData->clocks.realtime.tv_sec;
+}
+
+int gettimeofday(struct timeval* tv, struct timezone* tz) {
+	if(tv != NULL) {
+		tv->tv_sec = traceeData->clocks.realtime.tv_sec;
+		tv->tv_usec = traceeData->clocks.realtime.tv_nsec / 1000;
+	}
+	if(tz != NULL) {
+		tz->tz_minuteswest = 0;
+		tz->tz_dsttime = 0; //DST_NONE;
+	}
+	
+	return 0;
+}
+
+int settimeofday(const struct timeval* tv, const struct timezone* tz) {
+	return EPERM;
 }
 
 #pragma GCC visibility pop
