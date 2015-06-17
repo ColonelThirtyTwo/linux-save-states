@@ -20,19 +20,20 @@ ProcInfo spawn(string[] args) {
 	CommandPipe cmdpipe = CommandPipe.create();
 	
 	auto tracer = spawnTraced(args, cmdpipe);
-	ProcInfo info = {
-		tracer: tracer,
-		commandPipe: cmdpipe,
-	};
-	return info;
+	return new ProcInfo(tracer, cmdpipe);
 }
 
 /// Process info structure, which holds several other process-related structures
 /// for controlling and getting info from a process.
-struct ProcInfo {
+final class ProcInfo {
 	ProcTracer tracer;
 	CommandPipe commandPipe;
 	Time time;
+	
+	private this(ProcTracer tracer, CommandPipe commandPipe) {
+		this.tracer = tracer;
+		this.commandPipe = commandPipe;
+	}
 	
 	/// Traced process PID.
 	pid_t pid() @property {

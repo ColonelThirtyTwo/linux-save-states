@@ -8,4 +8,4 @@ import procinfo;
 SaveStatesFile saveFile;
 
 /// The proceess currently being traced, or null if not tracing anything right now.
-Nullable!ProcInfo process;
+ProcInfo process;

@@ -52,7 +52,7 @@ auto readFiles(pid_t pid) {
 
 /// Closes all open files of a process and loads the passed list of files.
 /// stdin/out/err and the command pipes are skipped.
-void loadFiles(Range)(auto ref ProcInfo proc, Range newFiles)
+void loadFiles(Range)(ProcInfo proc, Range newFiles)
 if(isInputRange!Range && is(ElementType!Range : FileDescriptor)) {
 	auto pid = proc.pid;
 	getFileDescriptors(pid)

@@ -44,7 +44,7 @@ struct Time {
 	}
 	
 	/// Updates the clock on the tracee.
-	void updateTime()(auto ref ProcInfo proc) {
+	void updateTime(ProcInfo proc) {
 		proc.write(
 			Wrapper2AppCmd.CMD_SETCLOCK,
 			cast(int) CLOCK_REALTIME,

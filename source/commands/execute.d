@@ -116,7 +116,7 @@ int cmd_execute(string[] args) {
 		return 0;
 	}
 	
-	if(!process.isNull) {
+	if(process !is null) {
 		stderr.writeln("Cannot spawn process: a process is already being traced.");
 		return 1;
 	}
