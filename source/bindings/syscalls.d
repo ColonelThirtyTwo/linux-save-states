@@ -1,5 +1,5 @@
 /// System call definitions.
-module syscalls;
+module bindings.syscalls;
 
 import core.stdc.config : c_ulong, c_long;
 

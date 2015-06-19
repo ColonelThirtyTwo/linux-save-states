@@ -1,5 +1,5 @@
 /// liblinenoies definitions
-module linenoise;
+module bindings.linenoise;
 
 version(LineNoise) {}
 else static assert("linenoise imported in non-linenoise build");

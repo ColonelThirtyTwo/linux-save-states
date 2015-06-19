@@ -16,7 +16,7 @@ import commands : CommandName, Help, CliOnly;
 import models;
 import procinfo;
 import savefile;
-version(LineNoise) import linenoise;
+version(LineNoise) import bindings.linenoise;
 
 import allcmds = commands.all;
 import global;
@@ -31,7 +31,7 @@ private struct CommandInterpreter {
 		while(doLoop) {
 			string line;
 			version(LineNoise) {
-				line = linenoise.linenoise("> ").fromStringz.idup;
+				line = linenoise("> ").fromStringz.idup;
 				if(line.ptr is null)
 					break;
 			} else {
@@ -106,7 +106,7 @@ private:
 @CliOnly
 int cmd_execute(string[] args) {
 	import std.c.linux.linux;
-	import syscalls;
+	//import bindings.syscalls;
 	
 	if(args.length == 0) {
 		stderr.writeln(Help!cmd_execute);

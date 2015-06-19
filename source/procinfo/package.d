@@ -37,7 +37,7 @@ final class ProcInfo {
 	}
 	
 	/// Traced process PID.
-	pid_t pid() @property {
+	pid_t pid() @property const pure nothrow @nogc {
 		return tracer.pid;
 	}
 	

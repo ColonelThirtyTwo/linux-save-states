@@ -5,7 +5,7 @@ import std.algorithm;
 import std.range;
 import std.typecons : Nullable;
 
-public import procinfo.tracer : Registers;
+import bindings.ptrace : user_regs_struct, user_fpregs_struct;
 
 struct Clock {
 	ulong sec, nsec;
@@ -101,4 +101,10 @@ struct FileDescriptor {
 	
 	/// File open flags
 	int flags;
+}
+
+/// Holds the contents of the (architecture dependent) registers.
+struct Registers {
+	user_regs_struct general;
+	user_fpregs_struct floating;
 }

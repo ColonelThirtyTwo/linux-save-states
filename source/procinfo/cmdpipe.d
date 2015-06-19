@@ -86,6 +86,12 @@ struct CommandPipe {
 		traceeWriterFd = 0;
 	}
 	
+	/// Returns the file descriptor of the pipe used to read commands from the tracee.
+	/// This should only be used to `select (2)` over.
+	int readFD() @property const pure nothrow @nogc {
+		return tracerReaderFd;
+	}
+	
 	/// Writes some data to the command stream.
 	void write(T)(T v)
 	if(staticIndexOf!(Unqual!T, int, uint, long, ulong) != -1) {
