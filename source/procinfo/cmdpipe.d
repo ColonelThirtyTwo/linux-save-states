@@ -39,47 +39,57 @@ private alias linux_read = read;
 /// This uses Linux pipes (see pipe(7) and pipe(2)) for communication.
 /// When the process forks to create the tracee, it calls `setupPipes` to place the pipes at a fixed FD (given by `APP_READ_FD` and `APP_WRITE_FD`).
 struct CommandPipe {
-	private int wrapperReaderFd, wrapperWriterFd;
-	private int appReaderFd, appWriterFd;
+	private int tracerReaderFd, tracerWriterFd;
+	private int traceeReaderFd, traceeWriterFd;
 	
 	/// Creates a command pipe.
 	static CommandPipe create() {
 		CommandPipe cmdpipe;
 		
 		// Create pipes
-		int[2] wrapper2appPipe;
-		int[2] app2wrapperPipe;
+		int[2] tracer2traceePipe;
+		int[2] tracee2tracerPipe;
 		
-		errnoEnforce(pipe2(wrapper2appPipe.ptr, O_CLOEXEC) != -1);
-		errnoEnforce(pipe2(app2wrapperPipe.ptr, O_CLOEXEC) != -1);
+		errnoEnforce(pipe2(tracer2traceePipe.ptr, O_CLOEXEC) != -1);
+		errnoEnforce(pipe2(tracee2tracerPipe.ptr, O_CLOEXEC) != -1);
 		
-		cmdpipe.wrapperReaderFd = app2wrapperPipe[0];
-		cmdpipe.wrapperWriterFd = wrapper2appPipe[1];
+		cmdpipe.tracerReaderFd = tracee2tracerPipe[0];
+		cmdpipe.tracerWriterFd = tracer2traceePipe[1];
 		
-		cmdpipe.appReaderFd = wrapper2appPipe[0];
-		cmdpipe.appWriterFd = app2wrapperPipe[1];
+		cmdpipe.traceeReaderFd = tracer2traceePipe[0];
+		cmdpipe.traceeWriterFd = tracee2tracerPipe[1];
 		
 		return cmdpipe;
 	}
 	
 	/// Clones the tracee's pipe endpoins to the hardcoded locations that the tracee expects.
 	/// This should be called in the forked process, before calling exec.
-	void setupTraceePipes() {
-		errnoEnforce(dup2(appReaderFd, APP_READ_FD) != -1);
-		errnoEnforce(dup2(appWriterFd, APP_WRITE_FD) != -1);
+	void setupTraceePipes()
+	in {
+		assert(traceeReaderFd != 0, "Tracee pipe was closed");
+		assert(traceeWriterFd != 0, "Tracee pipe was closed");
+	} body {
+		errnoEnforce(dup2(traceeReaderFd, APP_READ_FD) != -1);
+		errnoEnforce(dup2(traceeWriterFd, APP_WRITE_FD) != -1);
 	}
 	
 	/// Closes the tracers copy of the tracee's command pipes. This should be called
 	/// by the parent process after fork.
-	void closeTraceePipes() {
-		errnoEnforce(close(appReaderFd) != -1);
-		errnoEnforce(close(appWriterFd) != -1);
+	void closeTraceePipes()
+	in {
+		assert(traceeReaderFd != 0, "Tracee pipe was closed");
+		assert(traceeWriterFd != 0, "Tracee pipe was closed");
+	} body {
+		errnoEnforce(close(traceeReaderFd) != -1);
+		errnoEnforce(close(traceeWriterFd) != -1);
+		traceeReaderFd = 0;
+		traceeWriterFd = 0;
 	}
 	
 	/// Writes some data to the command stream.
 	void write(T)(T v)
 	if(staticIndexOf!(Unqual!T, int, uint, long, ulong) != -1) {
-		ssize_t written = linux_write(wrapperWriterFd, &v, T.sizeof);
+		ssize_t written = linux_write(tracerWriterFd, &v, T.sizeof);
 		errnoEnforce(written != -1);
 		enforce(written == T.sizeof, "Didn't write enough data.");
 	}
@@ -91,7 +101,7 @@ struct CommandPipe {
 		assert(s.length <= uint.max);
 		this.write(cast(uint) s.length);
 		
-		ssize_t written = linux_write(wrapperWriterFd, s.ptr, s.length);
+		ssize_t written = linux_write(tracerWriterFd, s.ptr, s.length);
 		errnoEnforce(written != -1);
 		enforce(written == s.length, "Didn't write enough data.");
 	}
@@ -113,7 +123,7 @@ struct CommandPipe {
 	if(staticIndexOf!(T, int, uint, long, ulong) != -1) {
 		T v;
 		
-		ssize_t numRead = linux_read(wrapperReaderFd, &v, T.sizeof);
+		ssize_t numRead = linux_read(tracerReaderFd, &v, T.sizeof);
 		errnoEnforce(numRead != -1);
 		enforce(numRead == T.sizeof, "Didn't read enough data.");
 		return v;
@@ -125,7 +135,7 @@ struct CommandPipe {
 		auto len = this.read!uint();
 		auto buf = new char[len];
 		
-		ssize_t numRead = linux_read(wrapperReaderFd, buf.ptr, buf.length);
+		ssize_t numRead = linux_read(tracerReaderFd, buf.ptr, buf.length);
 		errnoEnforce(numRead != -1);
 		enforce(numRead == buf.length, "Didn't read enough data.");
 		
