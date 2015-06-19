@@ -1,3 +1,4 @@
+/// Commands for inspecting saved states and other data.
 module commands.savefile;
 
 import std.stdio;

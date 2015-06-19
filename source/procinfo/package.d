@@ -1,3 +1,4 @@
+/// Functions for inspecting the resources of traced processes.
 module procinfo;
 
 import std.regex;

@@ -1,3 +1,4 @@
+/// Memory inspection
 module procinfo.memory;
 
 import std.conv : to;

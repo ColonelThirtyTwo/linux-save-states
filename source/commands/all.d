@@ -1,4 +1,4 @@
-
+/// Contains all commands as public imports. Needed to resolve circular dependencies.
 module commands.all;
 
 import std.algorithm;

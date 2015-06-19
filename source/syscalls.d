@@ -1,3 +1,4 @@
+/// System call definitions.
 module syscalls;
 
 import core.stdc.config : c_ulong, c_long;

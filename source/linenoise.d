@@ -1,4 +1,4 @@
-
+/// liblinenoies definitions
 module linenoise;
 
 version(LineNoise) {}

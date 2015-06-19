@@ -1,4 +1,4 @@
-
+/// Spawning and controlling a traced process.
 module procinfo.tracer;
 
 import std.algorithm;
@@ -46,7 +46,7 @@ in {
 			errnoEnforce(personality(ADDR_NO_RANDOMIZE) != -1);
 			
 			// Setup command pipes
-			cmdpipe.setupPipes();
+			cmdpipe.setupTraceePipes();
 			
 			// Trace self
 			errnoEnforce(ptrace(PTraceRequest.PTRACE_TRACEME, 0, null, null) != -1);
@@ -62,6 +62,8 @@ in {
 		}
 		assert(false);
 	}
+	
+	cmdpipe.closeTraceePipes();
 	
 	// Not in fork; set up ptrace options
 	auto tracer = ProcTracer(pid);

@@ -1,3 +1,4 @@
+/// Data structures for info about a save state
 module models;
 
 import std.algorithm;

@@ -1,3 +1,4 @@
+/// Contains the `execute` command and the shell for it.
 module commands.execute;
 
 import std.stdio;

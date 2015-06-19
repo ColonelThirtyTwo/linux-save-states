@@ -2,11 +2,17 @@
 #include "tracee.h"
 #include "x/x.h"
 
+#define XLIB_ILLEGAL_ACCESS // Lets us access internals of X11 structs
+#include <X11/Xlib.h>
+
 #include <stddef.h>
-#include <X11/X.h>
 #include <dlfcn.h>
 
-__attribute__((visibility("default"))) void glXSwapBuffers(void* dpy, XID drawable) {
+/*EXPORT Display* XOpenDisplay(const char* name) {
+	
+}*/
+
+EXPORT void glXSwapBuffers(void* dpy, XID drawable) {
 	static void(*oldglXSwapBuffers)(void*,XID) = NULL;
 	
 	if(oldglXSwapBuffers == NULL) {

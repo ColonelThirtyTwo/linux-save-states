@@ -1,3 +1,4 @@
+/// Open file inspection
 module procinfo.files;
 
 import std.stdio;

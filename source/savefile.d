@@ -1,4 +1,5 @@
-﻿module savefile;
+﻿/// Opening, saving, and serializing save states.
+module savefile;
 
 import std.string : toStringz, fromStringz;
 import std.exception : enforce;

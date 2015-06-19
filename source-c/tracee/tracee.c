@@ -62,11 +62,16 @@ __attribute__((noreturn)) void fail(const char* msg) {
 	abort();
 }
 
-/// Reads a value from the specified file descriptor and aborts on errors.
-static void readData(int fd, void* out, size_t size) {
+void readData(int fd, void* out, size_t size) {
 	ssize_t numRead = syscall3(SYS_read, fd, out, size);
 	if(numRead != size)
 		fail("could not read from the command pipe");
+}
+
+void writeData(int fd, const void* in, size_t size) {
+	ssize_t numWrote = syscall3(SYS_write, fd, in, size);
+	if(numWrote != size)
+		fail("could not write to command pipe");
 }
 
 /// Called at startup

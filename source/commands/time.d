@@ -1,3 +1,4 @@
+/// Commands for getting and setting the traced process' clock.
 module commands.time;
 
 import std.stdio;

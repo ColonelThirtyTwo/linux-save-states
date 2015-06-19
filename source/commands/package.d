@@ -1,4 +1,4 @@
-
+/// CLI commands for both CLI arguments and the `execute` shell.
 module commands;
 
 import std.format : format;

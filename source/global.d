@@ -1,4 +1,4 @@
-
+/// Global variables
 module global;
 
 import savefile;

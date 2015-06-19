@@ -1,3 +1,4 @@
+/// Clocks.
 module procinfo.time;
 
 import core.sys.posix.time;
@@ -9,7 +10,9 @@ import procinfo.cmdpipe;
 /// Holds the simulated clocks and their time values.
 /// Also manages incrementing the clocks and setting the clocks on the tracee.
 struct Time {
+	/// Current value of the clocks.
 	Clock realtime, monotonic;
+	/// Amount of time in nanoseconds to increment the clocks on a call to `incrementFrame`
 	ulong timePerFrame;
 	
 	/// Loads the clocks from a SaveState.
