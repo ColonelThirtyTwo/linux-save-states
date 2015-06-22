@@ -111,7 +111,7 @@ struct ProcTracer {
 	/// Continues a process in a ptrace stop.
 	/// If `untilSyscall` is true, then the process will continue until the next system call (PTRACE_SYSCALL),
 	/// otherwise it will continue until it receives a signal or other condition (PTRACE_CONT).
-	void resume(uint signal=0, bool untilSyscall=true) {
+	void resume(uint signal=0, bool untilSyscall=false) {
 		errnoEnforce(ptrace(untilSyscall ? PTraceRequest.PTRACE_SYSCALL : PTraceRequest.PTRACE_CONT,
 			pid, null, cast(void*) signal) != -1);
 	}

@@ -77,6 +77,7 @@ final class ProcInfo {
 	}
 }
 
+/+
 /// Checks if the process is stopped with SIGSTOP.
 bool isStopped(in pid_t pid) {
 	alias statRE = ctRegex!`^[^\s]+ [^\s]+ (.)`;
@@ -88,3 +89,4 @@ bool isStopped(in pid_t pid) {
 	
 	return match[1] == "T";
 }
++/

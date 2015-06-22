@@ -125,11 +125,6 @@ int cmd_execute(string[] args) {
 	process = spawn(args);
 	process.tracer.resume();
 	
-	// true if in syscall
-	bool inSyscall = false;
-	// true if we got SIGTRAP in a syscall and we should stop when the syscall exits.
-	bool shouldStop = false;
-	
 	auto commands = CommandInterpreter();
 	
 	try {
@@ -137,29 +132,11 @@ int cmd_execute(string[] args) {
 			auto ev = process.tracer.wait();
 			final switch(ev) {
 			case WaitEvent.PAUSE:
-				if(inSyscall)
-					// `kill(getpid(), SIGTRAP)` will stop the process while in a system call, during which
-					// the process shouldn't be saved, so delay stopping until the syscall exits.
-					shouldStop = true;
-				else
-					commands.doCommands();
+				commands.doCommands();
 				process.tracer.resume();
 				break;
 			case WaitEvent.SYSCALL:
-				if(!inSyscall) {
-					// entering syscall
-					//writeln("+ syscall: ", process.tracer.getSyscall().to!string);
-					inSyscall = true;
-				} else {
-					// exiting syscall
-					inSyscall = false;
-					if(shouldStop) {
-						commands.doCommands();
-						shouldStop = false;
-					}
-				}
-				process.tracer.resume();
-				break;
+				assert(false);
 			}
 		}
 	} catch(QuitException ex) {
