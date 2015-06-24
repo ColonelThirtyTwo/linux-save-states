@@ -87,7 +87,7 @@ struct CommandPipe {
 	}
 	
 	/// Returns the file descriptor of the pipe used to read commands from the tracee.
-	/// This should only be used to `select (2)` over.
+	/// This should only be used with `select`, et.al. to check for pending data.
 	int readFD() @property const pure nothrow @nogc {
 		return tracerReaderFd;
 	}

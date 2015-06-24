@@ -46,7 +46,7 @@ if(isInputRange!Range && is(ElementType!Range : const(MemoryMap))) {
 }
 
 /// Sets the program break
-void setBrk()(auto ref ProcInfo proc, ulong addr) {
+void setBrk(ProcInfo proc, ulong addr) {
 	assert(addr <= size_t.max);
 	
 	proc.write(

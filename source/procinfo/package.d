@@ -4,10 +4,12 @@ module procinfo;
 import std.regex;
 import std.range;
 import std.typecons;
-import std.c.linux.linux : pid_t;
-import std.algorithm : filter;
+import std.algorithm : filter, max;
+import std.c.linux.linux;
+import core.sys.linux.sys.signalfd : signalfd_siginfo;
 
 import models;
+import signals = signals;
 
 public import procinfo.memory;
 public import procinfo.tracer;
@@ -27,8 +29,8 @@ ProcInfo spawn(string[] args) {
 /// Process info structure, which holds several other process-related structures
 /// for controlling and getting info from a process.
 final class ProcInfo {
-	ProcTracer tracer;
-	CommandPipe commandPipe;
+	private ProcTracer tracer;
+	private CommandPipe commandPipe;
 	Time time;
 	
 	private this(ProcTracer tracer, CommandPipe commandPipe) {
@@ -39,6 +41,47 @@ final class ProcInfo {
 	/// Traced process PID.
 	pid_t pid() @property const pure nothrow @nogc {
 		return tracer.pid;
+	}
+	
+	/// Resumes the process.
+	void resume() {
+		tracer.resume();
+	}
+	
+	/// Waits until the process pauses.
+	/// This also handles any commands that the process sends through the command pipe, unlike `tracer.wait`.
+	/// Can also throw one of `TraceeExited`, `TraceeSignaled`, or `UnknownEvent`; see `procinfo.tracer`
+	void wait() {
+		while(true) {
+			fd_set fds;
+			FD_ZERO(&fds);
+			FD_SET(commandPipe.readFD, &fds);
+			FD_SET(signals.sigfd, &fds);
+			
+			errnoEnforce(select(max(commandPipe.readFD, signals.sigfd)+1, &fds, null, null, null) != -1);
+			
+			if(FD_ISSET(signals.sigfd, &fds)) {
+				// Got a SIGCHLD, call wait to check on process
+				signalfd_siginfo info;
+				auto numRead = read(signals.sigfd, &info, info.sizeof);
+				errnoEnforce(numRead != -1);
+				assert(numRead == info.sizeof);
+				
+				assert(info.ssi_signo == SIGCHLD);
+				assert(info.ssi_pid == pid);
+				
+				// tracer.wait will throw exceptions if the process terminates.
+				auto ev = tracer.wait();
+				assert(ev == WaitEvent.PAUSE);
+				// paused normally, exit resume
+				return;
+			}
+			
+			if(FD_ISSET(commandPipe.readFD, &fds)) {
+				// TODO: Dispatch commands
+				//assert(false);
+			}
+		}
 	}
 	
 	/// Saves the process state.
@@ -66,18 +109,18 @@ final class ProcInfo {
 	}
 	
 	/// Sends a command through the command pipe to the tracee.
-	void write(T...)(T vals) {
-		this.tracer.resume();
+	/// By default, this waits for the tracee to read the data and finish processing. Set waitForResponse to false to not wait.
+	void write(bool waitForResponse = true, T...)(T vals) {
+		this.resume();
 		
 		foreach(val; vals)
 			this.commandPipe.write(val);
 		
-		while(this.tracer.wait() != WaitEvent.PAUSE)
-			this.tracer.resume();
+		static if(waitForResponse)
+			this.wait();
 	}
 }
 
-/+
 /// Checks if the process is stopped with SIGSTOP.
 bool isStopped(in pid_t pid) {
 	alias statRE = ctRegex!`^[^\s]+ [^\s]+ (.)`;
@@ -87,6 +130,5 @@ bool isStopped(in pid_t pid) {
 	auto match = line.matchFirst(statRE);
 	assert(match);
 	
-	return match[1] == "T";
+	return match[1] == "T" || match[1] == "t";
 }
-+/

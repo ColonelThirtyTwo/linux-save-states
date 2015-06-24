@@ -9,6 +9,7 @@ import std.path : absolutePath;
 import std.file : getcwd;
 import std.process : execvpe, environment;
 import std.c.linux.linux;
+import core.sys.linux.errno;
 
 import models : Registers;
 import bindings.syscalls;
@@ -80,19 +81,24 @@ in {
 /// Create by using `spawnTraced`
 struct ProcTracer {
 	pid_t pid;
+	debug private bool isPaused = false;
 	
 	private this(pid_t pid) {
 		this.pid = pid;
 	}
 	
 	/// Waits for the tracee to pause after a call to resume.
-	/// Returns a WaitEvent describing what caused the process to stop,
-	/// or throws one of TraceeExited, TraceeSignaled, or UnknownEvent.
-	WaitEvent wait() {
+	/// Returns a WaitEvent describing what caused the process to stop, or throws one of TraceeExited, TraceeSignaled, or UnknownEvent.
+	WaitEvent wait(bool nohang=false) {
+		debug assert(!isPaused, "wait called on paused process");
+		
 		int status;
-		int waitedPID = waitpid(pid, &status, 0);
+		//int waitedPID = waitpid(pid, &status, nohang ? WNOHANG : 0);
+		int waitedPID = waitpid(-1, &status, nohang ? WNOHANG : 0);
 		errnoEnforce(waitedPID != -1);
-		assert(waitedPID == pid);
+		if(waitedPID == 0)
+			return WaitEvent.NOEVENT;
+		assert(waitedPID == pid, "Unexpected result from waitpid, expected %d, got %d".format(pid, waitedPID));
 		
 		if(WIFEXITED(status))
 			throw new TraceeExited(WEXITSTATUS(status));
@@ -100,6 +106,8 @@ struct ProcTracer {
 			throw new TraceeSignaled(WSTOPSIG(status));
 		if(!WIFSTOPPED(status))
 			throw new UnknownEvent(status);
+		
+		isPaused = true;
 		
 		if(WSTOPSIG(status) == SIGTRAP)
 			return WaitEvent.PAUSE;
@@ -112,8 +120,18 @@ struct ProcTracer {
 	/// If `untilSyscall` is true, then the process will continue until the next system call (PTRACE_SYSCALL),
 	/// otherwise it will continue until it receives a signal or other condition (PTRACE_CONT).
 	void resume(uint signal=0, bool untilSyscall=false) {
-		errnoEnforce(ptrace(untilSyscall ? PTraceRequest.PTRACE_SYSCALL : PTraceRequest.PTRACE_CONT,
-			pid, null, cast(void*) signal) != -1);
+		debug assert(isPaused, "wait called on paused process");
+		
+		auto err = ptrace(untilSyscall ? PTraceRequest.PTRACE_SYSCALL : PTraceRequest.PTRACE_CONT,
+			pid, null, cast(void*) signal);
+		if(err == -1 && errno == ESRCH) {
+			auto ev = this.wait(true);
+			assert(false, "Got "~to!string(ev));
+		}
+		
+		isPaused = false;
+		
+		errnoEnforce(err != -1);
 	}
 	
 	/// Peeks at the process' registers for the system call that the process is executing.
@@ -153,6 +171,8 @@ enum WaitEvent {
 	PAUSE,
 	/// Process did a system call
 	SYSCALL,
+	
+	NOEVENT,
 };
 
 /// Thrown by wait when the traced process exits normally.

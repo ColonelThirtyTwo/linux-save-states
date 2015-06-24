@@ -16,6 +16,7 @@ import commands : CommandName, Help, CliOnly;
 import models;
 import procinfo;
 import savefile;
+import signals = signals;
 version(LineNoise) import bindings.linenoise;
 
 import allcmds = commands.all;
@@ -46,10 +47,6 @@ private struct CommandInterpreter {
 			;
 			this.doCommand(args);
 		}
-		
-		process.time.incrementFrame();
-		process.time.updateTime(process);
-		process.commandPipe.write(Wrapper2AppCmd.CMD_CONTINUE);
 	}
 	
 private:
@@ -123,21 +120,19 @@ int cmd_execute(string[] args) {
 	}
 	
 	process = spawn(args);
-	process.tracer.resume();
+	signals.initSignals();
+	process.resume();
 	
 	auto commands = CommandInterpreter();
 	
 	try {
 		while(true) {
-			auto ev = process.tracer.wait();
-			final switch(ev) {
-			case WaitEvent.PAUSE:
-				commands.doCommands();
-				process.tracer.resume();
-				break;
-			case WaitEvent.SYSCALL:
-				assert(false);
-			}
+			process.wait();
+			commands.doCommands();
+			
+			process.time.incrementFrame();
+			process.time.updateTime(process);
+			process.write!false(Wrapper2AppCmd.CMD_CONTINUE);
 		}
 	} catch(QuitException ex) {
 		return 0;
@@ -153,7 +148,6 @@ int cmd_execute(string[] args) {
 
 /// Thrown by q[uit] to terminate the loop
 final class QuitException : Exception {
-	//this(string msg, string file = null, size_t line = 0)
 	this(string file=__FILE__, size_t line=__LINE__) {
 		super("quit", file, line);
 	}
