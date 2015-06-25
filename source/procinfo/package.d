@@ -16,6 +16,7 @@ public import procinfo.tracer;
 public import procinfo.cmdpipe;
 public import procinfo.files;
 public import procinfo.time;
+import procinfo.cmddispatch;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
@@ -31,6 +32,7 @@ ProcInfo spawn(string[] args) {
 final class ProcInfo {
 	private ProcTracer tracer;
 	private CommandPipe commandPipe;
+	private CommandDispatcher commandDispatcher;
 	Time time;
 	
 	private this(ProcTracer tracer, CommandPipe commandPipe) {
@@ -77,10 +79,8 @@ final class ProcInfo {
 				return;
 			}
 			
-			if(FD_ISSET(commandPipe.readFD, &fds)) {
-				// TODO: Dispatch commands
-				//assert(false);
-			}
+			if(FD_ISSET(commandPipe.readFD, &fds))
+				commandDispatcher.execute(commandPipe);
 		}
 	}
 	

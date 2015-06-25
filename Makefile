@@ -7,6 +7,7 @@ TESTPROGS=\
 	test-progs/hello-world.exe \
 	test-progs/brk.exe \
 	test-progs/time.exe \
+	test-progs/test-command.exe \
 
 OBJS = \
 	source-c/tracee/tracee.o \

@@ -1,2 +1,2 @@
 // See wrapper2appcmds for a description of the format.
-CMD_PAUSING = 1, // Tracee is about to pause.
+CMD_TEST = 1, // Test command. Args: uint test

@@ -6,6 +6,7 @@ import std.traits : Unqual, isSomeString;
 import std.exception : enforce, errnoEnforce, assumeUnique;
 import std.conv : to, octal;
 import std.format : format;
+import std.typecons : Nullable;
 import std.c.linux.linux;
 
 /// Commands passed from the wrapper proc to the traced proc. See `resources/wrapper2appcmds`.
@@ -21,6 +22,13 @@ mixin(q{
 		%s
 	};
 }.format(import("app2wrappercmds")));
+
+/// Thrown by read functions if the pipe was closed before or during a read.
+final class PipeClosedException : Exception {
+	this(string file=__FILE__, size_t line=__LINE__) {
+		super("Pipe closed");
+	}
+}
 
 /// The file descriptor that the traced app reads to get commands.
 enum APP_READ_FD = 500;
@@ -92,12 +100,18 @@ struct CommandPipe {
 		return tracerReaderFd;
 	}
 	
+	private void rawWrite(const(void)[] buf) {
+		while(buf.length > 0) {
+			ssize_t numWritten = linux_write(tracerWriterFd, buf.ptr, buf.length);
+			errnoEnforce(numWritten != -1);
+			buf = buf[numWritten..$];
+		}
+	}
+	
 	/// Writes some data to the command stream.
 	void write(T)(T v)
 	if(staticIndexOf!(Unqual!T, int, uint, long, ulong) != -1) {
-		ssize_t written = linux_write(tracerWriterFd, &v, T.sizeof);
-		errnoEnforce(written != -1);
-		enforce(written == T.sizeof, "Didn't write enough data.");
+		rawWrite((&v)[0..1]);
 	}
 	
 	/// ditto
@@ -107,9 +121,7 @@ struct CommandPipe {
 		assert(s.length <= uint.max);
 		this.write(cast(uint) s.length);
 		
-		ssize_t written = linux_write(tracerWriterFd, s.ptr, s.length);
-		errnoEnforce(written != -1);
-		enforce(written == s.length, "Didn't write enough data.");
+		rawWrite(s);
 	}
 	
 	/// ditto
@@ -124,14 +136,21 @@ struct CommandPipe {
 		this.write(cast(int)v);
 	}
 	
+	private void rawRead(scope void[] buf) {
+		while(buf.length > 0) {
+			auto numRead = linux_read(tracerReaderFd, buf.ptr, buf.length);
+			errnoEnforce(numRead != -1);
+			if(numRead == 0)
+				throw new PipeClosedException;
+			buf = buf[numRead..$];
+		}
+	}
+	
 	/// Reads some data from the command pipe.
 	T read(T)()
 	if(staticIndexOf!(T, int, uint, long, ulong) != -1) {
 		T v;
-		
-		ssize_t numRead = linux_read(tracerReaderFd, &v, T.sizeof);
-		errnoEnforce(numRead != -1);
-		enforce(numRead == T.sizeof, "Didn't read enough data.");
+		rawRead((&v)[0..1]);
 		return v;
 	}
 	
@@ -140,11 +159,7 @@ struct CommandPipe {
 	if(is(T == string)) {
 		auto len = this.read!uint();
 		auto buf = new char[len];
-		
-		ssize_t numRead = linux_read(tracerReaderFd, buf.ptr, buf.length);
-		errnoEnforce(numRead != -1);
-		enforce(numRead == buf.length, "Didn't read enough data.");
-		
+		rawRead(buf);
 		return assumeUnique(buf);
 	}
 	
@@ -156,7 +171,7 @@ struct CommandPipe {
 	
 	/// ditto
 	T read(T)()
-	if(is(T : Wrapper2AppCmd)) {
-		return cast(Wrapper2AppCmd) this.read!int();
+	if(is(T : App2WrapperCmd)) {
+		return cast(App2WrapperCmd) this.read!int();
 	}
 }

@@ -12,6 +12,8 @@
 #define TRACEE_READ_FD 500
 #define TRACEE_WRITE_FD 501
 
+#include "x/x-data.h"
+
 /// Commands sent from the tracer to the tracee
 typedef enum {
 	#include "wrapper2appcmds"
@@ -24,8 +26,6 @@ typedef enum {
 	A2WC_END
 } App2WrapperCmd;
 
-typedef struct _XDisplay Display;
-
 /// Data used by the tracee and overwritten functions
 typedef struct {
 	/// Version of the data. May be different than TRACEE_DATA_VERSION if an old state is loaded.
@@ -37,10 +37,7 @@ typedef struct {
 		struct timespec monotonic;
 	} clocks;
 	
-	struct {
-		Display* display;
-		
-	} x11;
+	lss_x_data x11;
 } TraceeData;
 
 extern TraceeData* traceeData;
@@ -62,5 +59,8 @@ inline size_t str_len(const char* str) {
 	while(str[len++] != 0);
 	return len;
 }
+
+/// Sends a test command to the tracer.
+EXPORT void lss_test_command(uint32_t val);
 
 #endif

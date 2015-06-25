@@ -168,3 +168,10 @@ int doOneCommand() {
 	}
 	return 0;
 }
+
+EXPORT void lss_test_command(uint32_t val) {
+	int cmd = (int) CMD_TEST;
+	
+	writeData(TRACEE_WRITE_FD, &cmd, sizeof(cmd));
+	writeData(TRACEE_WRITE_FD, &val, sizeof(val));
+}
