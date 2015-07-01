@@ -49,10 +49,10 @@ Available CLI commands:
 
 /// Tracer shell help text
 enum SHELL_USAGE = `
-Run "<command> --help" to display usage for a specific command.
+Run "help <command>" to display usage for a specific command.
 
 Available commands:
-` ~ ([staticMap!(CommandName, ShellCommands)] ~ ["c", "continue"])
+` ~ [staticMap!(CommandName, ShellCommands)]
 	.sort()
 	.map!(x => "* " ~ x)
 	.join("\n");

@@ -12,7 +12,7 @@ import std.exception : assumeWontThrow;
 
 import d2sqlite3;
 
-import commands : CommandName, Help, CliOnly;
+import commands : CommandName, Help, CliOnly, ShellOnly;
 import models;
 import procinfo;
 import savefile;
@@ -45,7 +45,11 @@ private struct CommandInterpreter {
 				.filter!(x => x.length > 0)
 				.array
 			;
-			this.doCommand(args);
+			try {
+				this.doCommand(args);
+			} catch(CommandContinue ex) {
+				return;
+			}
 		}
 	}
 	
@@ -63,23 +67,6 @@ private:
 				case CommandName!cmd:
 					return __traits(getMember, allcmds, cmd)(args[1..$]);
 			}
-			
-			case "h":
-			case "help":
-				writeln(allcmds.SHELL_USAGE);
-				return 0;
-			
-			case "c":
-			case "continue":
-				if(args.length > 1)
-					writeln("Usage: c[ontinue]\nContinues execution of the traced process.");
-				else
-					doLoop = false;
-				return 0;
-			
-			case "q":
-			case "quit":
-				throw new QuitException();
 			
 			default:
 				writeln("Unknown command");
@@ -137,7 +124,7 @@ int cmd_execute(string[] args) {
 			process.glState.pollEvents();
 			process.write!false(Wrapper2AppCmd.CMD_CONTINUE);
 		}
-	} catch(QuitException ex) {
+	} catch(CommandQuit ex) {
 		return 0;
 	} catch(TraceeExited ex) {
 		writeln("+ exited with status ", ex.exitCode);
@@ -149,9 +136,71 @@ int cmd_execute(string[] args) {
 	assert(false);
 }
 
-/// Thrown by q[uit] to terminate the loop
-final class QuitException : Exception {
+@("")
+@("Exits the command shell and continues the tracee")
+@ShellOnly
+int cmd_continue(string[] args) {
+	if(args.length != 0) {
+		stderr.writeln(Help!cmd_continue);
+		return 1;
+	}
+	
+	throw new CommandContinue();
+}
+alias cmd_c = cmd_continue;
+
+@("")
+@("Exits the command shell and terminates the tracee")
+@ShellOnly
+int cmd_quit(string[] args) {
+	if(args.length != 0) {
+		stderr.writeln(Help!cmd_quit);
+		return 1;
+	}
+	
+	throw new CommandQuit();
+}
+alias cmd_q = cmd_quit;
+
+@("[cmd]")
+@("Prints help text")
+int cmd_help(string[] args) {
+	if(args.length == 0) {
+		if(process is null)
+			writeln(allcmds.PROG_USAGE);
+		else
+			writeln(allcmds.SHELL_USAGE);
+		return 0;
+	}
+	if(args.length == 1) {
+		switch(args[0]) {
+			foreach(cmd; allcmds.AllCommands) {
+				case CommandName!cmd:
+					writeln(Help!(__traits(getMember, allcmds, cmd)));
+					return 0;
+			}
+			
+			default:
+				stderr.writeln("Unknown command");
+				return 1;
+		}
+	}
+	
+	stderr.writeln(Help!cmd_help);
+	return 1;
+}
+
+/// Thrown in a command to exit the shell and resume the tracee
+final class CommandContinue : Exception {
+	this(string file=__FILE__, size_t line=__LINE__) {
+		super("continue", file, line);
+	}
+}
+
+/// Thrown in a command to close the tracer and tracee.
+final class CommandQuit : Exception {
 	this(string file=__FILE__, size_t line=__LINE__) {
 		super("quit", file, line);
 	}
 }
+
