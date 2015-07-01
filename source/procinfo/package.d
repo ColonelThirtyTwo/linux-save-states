@@ -95,6 +95,10 @@ final class ProcInfo {
 			maps: readMemoryMaps(pid).array(),
 			registers: tracer.getRegisters(),
 			files: readFiles(pid).array(),
+			
+			windowSize: glState.hasWindow ?
+				typeof(SaveState.windowSize)(glState.windowSize) :
+				typeof(SaveState.windowSize)(),
 		};
 		return state;
 	}
@@ -109,6 +113,15 @@ final class ProcInfo {
 		
 		time.loadTime(state);
 		time.updateTime(this);
+		
+		if(state.windowSize.isNull && glState.hasWindow)
+			glState.closeWindow();
+		else if(!state.windowSize.isNull) {
+			if(glState.hasWindow)
+				glState.resizeWindow(state.windowSize);
+			else
+				glState.openWindow(state.windowSize);
+		}
 	}
 	
 	/// Sends a command through the command pipe to the tracee.

@@ -44,7 +44,7 @@ struct SaveStatesFile {
 	 * You probably want to run this in a transaction.
 	 */ 
 	void writeState()(auto ref SaveState state) {
-		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?,?,?,?,?,?,?);`);
+		auto stmt = db.prepare(`INSERT OR REPLACE INTO SaveStates VALUES (?,?,?,?,?,?,?,?,?);`);
 		stmt.bind(1, state.id);
 		stmt.bind(2, state.name);
 		stmt.bind(3, (cast(ubyte*) (&state.registers))[0..Registers.sizeof]);
@@ -52,6 +52,13 @@ struct SaveStatesFile {
 		stmt.bind(5, state.realtime.nsec);
 		stmt.bind(6, state.monotonic.sec);
 		stmt.bind(7, state.monotonic.nsec);
+		if(state.windowSize.isNull) {
+			stmt.bind(8, null);
+			stmt.bind(9, null);
+		} else {
+			stmt.bind(8, state.windowSize[0]);
+			stmt.bind(9, state.windowSize[1]);
+		}
 		stmt.execute();
 		
 		state.id = db.lastInsertRowid;
@@ -114,15 +121,21 @@ struct SaveStatesFile {
 		if(results.empty)
 			return Nullable!SaveState();
 		
-		ubyte[] registersBytes = results.front.peek!(ubyte[])(2);
+		auto result = results.front;
+		
+		ubyte[] registersBytes = result.peek!(ubyte[])(2);
 		enforce(registersBytes.length == Registers.sizeof, "Saved registers do not match the current architecture.");
 		
 		SaveState state = {
-			id: results.front.peek!ulong(0),
-			name: results.front.peek!string(1),
+			id: result.peek!ulong(0),
+			name: result.peek!string(1),
 			registers: *(cast(Registers*) registersBytes),
-			realtime: {sec: results.front.peek!ulong(3), nsec: results.front.peek!ulong(4)},
-			monotonic: {sec: results.front.peek!ulong(5), nsec: results.front.peek!ulong(6)},
+			realtime: {sec: result.peek!ulong(3), nsec: result.peek!ulong(4)},
+			monotonic: {sec: result.peek!ulong(5), nsec: result.peek!ulong(6)},
+			
+			windowSize: result.columnType(7) == SqliteType.NULL ?
+				typeof(SaveState.windowSize)() :
+				typeof(SaveState.windowSize)(tuple(result.peek!uint(7), result.peek!uint(8)))
 		};
 		
 		stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);

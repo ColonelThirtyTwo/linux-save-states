@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS SaveStates (
 	realtimeSeconds INT NOT NULL,
 	realtimeNanoseconds INT NOT NULL,
 	monotonicSeconds INT NOT NULL,
-	monotonicNanoseconds INT NOT NULL
+	monotonicNanoseconds INT NOT NULL,
+	
+	windowWidth INT, -- Opened window width/height. NULL if no window is open
+	windowHeight INT
 );
 
 CREATE TABLE IF NOT EXISTS MemoryMappings (

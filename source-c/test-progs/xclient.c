@@ -8,6 +8,9 @@
 extern void lss_pause(void);
 
 int main() {
+	printf("Pre-open\n");
+	lss_pause();
+	
 	Display* display = XOpenDisplay(NULL);
 	assert(display != NULL);
 	
@@ -51,6 +54,9 @@ int main() {
 	glXDestroyContext(display, context);
 	XDestroyWindow(display, window);
 	XCloseDisplay(display);
+	
+	printf("Window closed\n");
+	lss_pause();
 	
 	return 0;
 }

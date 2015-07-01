@@ -3,7 +3,7 @@ module models;
 
 import std.algorithm;
 import std.range;
-import std.typecons : Nullable;
+import std.typecons;
 
 import bindings.ptrace : user_regs_struct, user_fpregs_struct;
 
@@ -32,6 +32,9 @@ struct SaveState {
 	Clock realtime;
 	/// ditto
 	Clock monotonic;
+	
+	/// Window dimensions, or null if a window isn't opened.
+	Nullable!(Tuple!(uint, uint)) windowSize;
 	
 	/// Returns the location of the program break (see brk (2))
 	ulong brk() @property const pure {

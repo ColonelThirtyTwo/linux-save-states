@@ -135,6 +135,7 @@ int cmd_execute(string[] args) {
 			
 			process.time.incrementFrame();
 			process.time.updateTime(process);
+			process.glState.pollEvents();
 			process.write!false(Wrapper2AppCmd.CMD_CONTINUE);
 		}
 	} catch(QuitException ex) {
