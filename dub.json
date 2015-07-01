@@ -1,6 +1,6 @@
 {
 	"name": "linux-save-state",
-	"description": "PC game TAS tools for Linux",
+	"description": "Linux TAS tools",
 	"license": "public domain",
 	"authors": ["Alex 'Colonel Thirty Two' Parrill"],
 	"targetType": "executable",
@@ -8,6 +8,8 @@
 	"stringImportPaths": ["./resources/"],
 	"dependencies": {
 		"d2sqlite3": "~>0.7.1",
+		"derelict-glfw3": "~>1.1.0",
+		"derelict-gl3": "~>1.0.13"
 	},
 	
 	"configurations": [

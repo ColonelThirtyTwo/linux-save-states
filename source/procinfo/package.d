@@ -17,6 +17,9 @@ public import procinfo.cmdpipe;
 public import procinfo.files;
 public import procinfo.time;
 import procinfo.cmddispatch;
+import procinfo.gl;
+
+private alias linux_read = read;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
@@ -34,6 +37,7 @@ final class ProcInfo {
 	private CommandPipe commandPipe;
 	private CommandDispatcher commandDispatcher;
 	Time time;
+	OpenGLState glState;
 	
 	private this(ProcTracer tracer, CommandPipe commandPipe) {
 		this.tracer = tracer;
@@ -65,22 +69,21 @@ final class ProcInfo {
 			if(FD_ISSET(signals.sigfd, &fds)) {
 				// Got a SIGCHLD, call wait to check on process
 				signalfd_siginfo info;
-				auto numRead = read(signals.sigfd, &info, info.sizeof);
+				auto numRead = linux_read(signals.sigfd, &info, info.sizeof);
 				errnoEnforce(numRead != -1);
 				assert(numRead == info.sizeof);
 				
 				assert(info.ssi_signo == SIGCHLD);
 				assert(info.ssi_pid == pid);
 				
-				// tracer.wait will throw exceptions if the process terminates.
+				// tracer.wait will throw exceptions if the process terminated
 				auto ev = tracer.wait();
 				assert(ev == WaitEvent.PAUSE);
-				// paused normally, exit resume
 				return;
 			}
 			
 			if(FD_ISSET(commandPipe.readFD, &fds))
-				commandDispatcher.execute(commandPipe);
+				commandDispatcher.execute(this);
 		}
 	}
 	
@@ -118,6 +121,14 @@ final class ProcInfo {
 		
 		static if(waitForResponse)
 			this.wait();
+	}
+	
+	/// Reads data through the command pipe from the tracee.
+	Tuple!Data read(Data...)() {
+		Tuple!Data result;
+		foreach(i, T; Data)
+			result[i] = this.commandPipe.read!T();
+		return result;
 	}
 }
 

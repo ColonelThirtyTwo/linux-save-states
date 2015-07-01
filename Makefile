@@ -8,6 +8,7 @@ TESTPROGS=\
 	test-progs/brk.exe \
 	test-progs/time.exe \
 	test-progs/test-command.exe \
+	test-progs/xclient.exe \
 
 OBJS = \
 	source-c/tracee/tracee.o \
@@ -40,6 +41,8 @@ source-c/tracee/gl/gl.xml:
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
+test-progs/xclient.exe: source-c/test-progs/xclient.c libsavestates.so
+	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l X11 -l savestates
 
 clean:
 	rm -f libsavestates.so $(OBJS) test-progs/*.exe

@@ -15,6 +15,7 @@ import d2sqlite3;
 import commands : CommandName, Help, CliOnly;
 import models;
 import procinfo;
+import procinfo.gl;
 import savefile;
 import signals = signals;
 version(LineNoise) import bindings.linenoise;
@@ -118,6 +119,8 @@ int cmd_execute(string[] args) {
 		stderr.writeln("Cannot spawn process: a process is already being traced.");
 		return 1;
 	}
+	
+	OpenGLState.init();
 	
 	process = spawn(args);
 	signals.initSignals();

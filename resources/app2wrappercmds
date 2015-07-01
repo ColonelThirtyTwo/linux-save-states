@@ -1,2 +1,4 @@
 // See wrapper2appcmds for a description of the format.
-CMD_TEST = 1, // Test command. Args: uint test
+CMD_TEST = 1,        // Test command. Args: uint test
+CMD_OPENWINDOW = 2,  // Opens a GL window. Args: uint width, uint height
+CMD_CLOSEWINDOW = 3, // Closes the GL window.
