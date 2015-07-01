@@ -3,18 +3,12 @@ module procinfo.cmddispatch;
 
 import std.string : toLower;
 import std.conv : to;
+import std.typecons : Nullable;
 
 import procinfo;
 
 struct CommandDispatcher {
-	void execute(ProcInfo proc) {
-		App2WrapperCmd cmd;
-		try {
-			cmd = proc.read!App2WrapperCmd()[0];
-		} catch (PipeClosedException ex) {
-			return;
-		}
-		
+	void execute(App2WrapperCmd cmd, ProcInfo proc) {
 		final switch(cmd) {
 			foreach(CommandName; __traits(allMembers, App2WrapperCmd)) {
 				case __traits(getMember, App2WrapperCmd, CommandName):

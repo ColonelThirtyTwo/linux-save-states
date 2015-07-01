@@ -66,6 +66,12 @@ final class ProcInfo {
 			
 			errnoEnforce(select(max(commandPipe.readFD, signals.sigfd)+1, &fds, null, null, null) != -1);
 			
+			if(FD_ISSET(commandPipe.readFD, &fds)) {
+				Nullable!App2WrapperCmd cmd;
+				while(!(cmd = commandPipe.peekCommand()).isNull)
+					commandDispatcher.execute(cmd, this);
+			}
+			
 			if(FD_ISSET(signals.sigfd, &fds)) {
 				// Got a SIGCHLD, call wait to check on process
 				signalfd_siginfo info;
@@ -81,9 +87,6 @@ final class ProcInfo {
 				assert(ev == WaitEvent.PAUSE);
 				return;
 			}
-			
-			if(FD_ISSET(commandPipe.readFD, &fds))
-				commandDispatcher.execute(this);
 		}
 	}
 	

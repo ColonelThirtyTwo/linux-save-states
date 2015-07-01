@@ -8,6 +8,7 @@ import std.conv : to, octal;
 import std.format : format;
 import std.typecons : Nullable;
 import std.c.linux.linux;
+import core.stdc.errno;
 
 /// Commands passed from the wrapper proc to the traced proc. See `resources/wrapper2appcmds`.
 mixin(q{
@@ -173,5 +174,27 @@ struct CommandPipe {
 	T read(T)()
 	if(is(T : App2WrapperCmd)) {
 		return cast(App2WrapperCmd) this.read!int();
+	}
+	
+	/// Similar to read!App2WrapperCmd, but does not block and returns null if no command was received.
+	Nullable!App2WrapperCmd peekCommand() {
+		errnoEnforce(fcntl(tracerReaderFd, F_SETFL, O_NONBLOCK) != -1);
+		scope(exit) errnoEnforce(fcntl(tracerReaderFd, F_SETFL, 0) != -1);
+		
+		int cmdInt;
+		void[] buf = (&cmdInt)[0..1];
+		
+		while(buf.length > 0) {
+			auto numRead = linux_read(tracerReaderFd, buf.ptr, buf.length);
+			if(numRead == 0)
+				return Nullable!App2WrapperCmd();
+			if(numRead == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				enforce(buf.length == int.sizeof, "Read only part of a command before running out of data");
+				return Nullable!App2WrapperCmd();
+			}
+			errnoEnforce(numRead != -1);
+			buf = buf[numRead..$];
+		}
+		return Nullable!App2WrapperCmd(cast(App2WrapperCmd)cmdInt);
 	}
 }
