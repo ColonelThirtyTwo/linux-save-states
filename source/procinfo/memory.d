@@ -12,9 +12,8 @@ import std.range;
 import std.c.linux.linux : pid_t;
 
 import models;
-import procinfo : ProcInfo;
-import procinfo.cmdpipe : Wrapper2AppCmd;
-import procinfo.tracer : WaitEvent;
+import procinfo.proc;
+import procinfo.commands;
 
 /// Reads memory maps from a file and returns a range.
 auto readMemoryMaps(pid_t pid) {

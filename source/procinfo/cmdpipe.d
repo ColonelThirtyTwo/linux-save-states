@@ -10,19 +10,7 @@ import std.typecons : Nullable;
 import std.c.linux.linux;
 import core.stdc.errno;
 
-/// Commands passed from the wrapper proc to the traced proc. See `resources/wrapper2appcmds`.
-mixin(q{
-	enum Wrapper2AppCmd {
-		%s
-	};
-}.format(import("wrapper2appcmds")));
-
-/// Commands passed from the traced proc to the wrapper proc. See `resources/app2wrappercmds`.
-mixin(q{
-	enum App2WrapperCmd {
-		%s
-	};
-}.format(import("app2wrappercmds")));
+import procinfo.commands;
 
 /// Thrown by read functions if the pipe was closed before or during a read.
 final class PipeClosedException : Exception {

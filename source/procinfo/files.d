@@ -13,9 +13,9 @@ import std.typecons : Nullable, Tuple, tuple;
 import std.c.linux.linux : pid_t;
 
 import models;
-import procinfo;
-import procinfo.cmdpipe;
-import procinfo.tracer : WaitEvent;
+import procinfo.proc;
+import procinfo.commands;
+import procinfo.cmdpipe : APP_READ_FD, APP_WRITE_FD;
 
 private {
 	alias specialLinkRE = ctRegex!`^([a-zA-Z0-9_]*):\[?([^\]]+)\]?$`;

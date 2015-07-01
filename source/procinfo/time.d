@@ -4,8 +4,8 @@ module procinfo.time;
 import core.sys.posix.time;
 
 import models;
-import procinfo;
-import procinfo.cmdpipe;
+import procinfo.proc;
+import procinfo.commands;
 
 /// Holds the simulated clocks and their time values.
 /// Also manages incrementing the clocks and setting the clocks on the tracee.

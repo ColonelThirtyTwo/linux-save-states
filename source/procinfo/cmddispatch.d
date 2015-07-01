@@ -5,7 +5,8 @@ import std.string : toLower;
 import std.conv : to;
 import std.typecons : Nullable;
 
-import procinfo;
+import procinfo.proc;
+import procinfo.commands;
 
 struct CommandDispatcher {
 	void execute(App2WrapperCmd cmd, ProcInfo proc) {

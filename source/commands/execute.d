@@ -15,7 +15,6 @@ import d2sqlite3;
 import commands : CommandName, Help, CliOnly;
 import models;
 import procinfo;
-import procinfo.gl;
 import savefile;
 import signals = signals;
 version(LineNoise) import bindings.linenoise;
