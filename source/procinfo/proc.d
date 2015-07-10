@@ -17,10 +17,11 @@ private alias linux_read = read;
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
 ProcInfo spawn(string[] args) {
-	CommandPipe cmdpipe = CommandPipe.create();
+	auto cmdpipe = CommandPipe.create();
+	auto glpipe = CommandPipe.create();
 	
-	auto tracer = spawnTraced(args, cmdpipe);
-	return new ProcInfo(tracer, cmdpipe);
+	auto tracer = spawnTraced(args, cmdpipe, glpipe);
+	return new ProcInfo(tracer, cmdpipe, glpipe);
 }
 
 /// Process info structure, which holds several other process-related structures
@@ -28,13 +29,15 @@ ProcInfo spawn(string[] args) {
 final class ProcInfo {
 	private ProcTracer tracer;
 	private CommandPipe commandPipe;
+	private CommandPipe glPipe;
 	private CommandDispatcher commandDispatcher;
 	Time time;
 	OpenGLState glState;
 	
-	private this(ProcTracer tracer, CommandPipe commandPipe) {
+	private this(ProcTracer tracer, CommandPipe commandPipe, CommandPipe glPipe) {
 		this.tracer = tracer;
 		this.commandPipe = commandPipe;
+		this.glPipe = glPipe;
 	}
 	
 	/// Traced process PID.

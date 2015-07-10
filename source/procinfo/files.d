@@ -8,6 +8,8 @@ import std.format : format;
 import std.string : chomp, chompPrefix;
 import std.algorithm;
 import std.range;
+import std.traits;
+import std.typetuple;
 import std.regex;
 import std.typecons : Nullable, Tuple, tuple;
 import std.c.linux.linux : pid_t;
@@ -15,7 +17,7 @@ import std.c.linux.linux : pid_t;
 import models;
 import procinfo.proc;
 import procinfo.commands;
-import procinfo.cmdpipe : APP_READ_FD, APP_WRITE_FD;
+import procinfo.cmdpipe : AllSpecialFileDescriptors;
 
 private {
 	alias specialLinkRE = ctRegex!`^([a-zA-Z0-9_]*):\[?([^\]]+)\]?$`;
@@ -82,7 +84,7 @@ if(isInputRange!Range && is(ElementType!Range : FileDescriptor)) {
 auto getFileDescriptors(pid_t pid) {
 	return dirEntries("/proc/"~to!string(pid)~"/fd/", SpanMode.shallow)
 		.map!(x => x.name.findSplitAfter("/fd/")[1].to!int)
-		.filter!(x => !(x <= 2 || x == APP_READ_FD || x == APP_WRITE_FD))
+		.filter!(x => !AllSpecialFileDescriptors.canFind(x))
 	;
 }
 

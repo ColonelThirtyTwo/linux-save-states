@@ -1,8 +1,9 @@
 /// Command Pipe
 module procinfo.cmdpipe;
 
-import std.typetuple : staticIndexOf;
-import std.traits : Unqual, isSomeString;
+import std.typetuple;
+import std.traits;
+import std.range;
 import std.exception : enforce, errnoEnforce, assumeUnique;
 import std.conv : to, octal;
 import std.format : format;
@@ -19,10 +20,32 @@ final class PipeClosedException : Exception {
 	}
 }
 
-/// The file descriptor that the traced app reads to get commands.
-enum APP_READ_FD = 500;
-/// The file descriptor that the traced app write to send commands.
-enum APP_WRITE_FD = 501;
+/// Special file descriptors for the tracee.
+/// Specifying a file descriptor here will cause LSS to ignore it when looking for open file descriptors to save.
+enum SpecialFileDescriptors : int {
+	/// Standard streams
+	STDIN = 0,
+	/// ditto
+	STDOUT = 1,
+	/// ditto
+	STDERR = 2,
+	
+	/// FD that the tracee reads to get general commands
+	TRACEE_READ_FD = 500,
+	/// FD that the tracee writes to send general commands
+	TRACEE_WRITE_FD = 501,
+	
+	/// FD that the tracee reads to get OpenGL data
+	GL_READ_FD = 502,
+	/// FD that the tracee writes to send OpenGL commands and data
+	GL_WRITE_FD = 503,
+}
+
+private template ValueOfEnum(SpecialFileDescriptors v) {
+	enum int ValueOfEnum = cast(int) v;
+}
+
+enum AllSpecialFileDescriptors = only(staticMap!(ValueOfEnum, EnumMembers!SpecialFileDescriptors));
 
 private extern(C) @nogc nothrow {
 	int pipe2(int* pipefd, int flags);
@@ -61,13 +84,13 @@ struct CommandPipe {
 	
 	/// Clones the tracee's pipe endpoins to the hardcoded locations that the tracee expects.
 	/// This should be called in the forked process, before calling exec.
-	void setupTraceePipes()
+	void setupTraceePipes(int readfd, int writefd)
 	in {
 		assert(traceeReaderFd != 0, "Tracee pipe was closed");
 		assert(traceeWriterFd != 0, "Tracee pipe was closed");
 	} body {
-		errnoEnforce(dup2(traceeReaderFd, APP_READ_FD) != -1);
-		errnoEnforce(dup2(traceeWriterFd, APP_WRITE_FD) != -1);
+		errnoEnforce(dup2(traceeReaderFd, readfd) != -1);
+		errnoEnforce(dup2(traceeWriterFd, writefd) != -1);
 	}
 	
 	/// Closes the tracers copy of the tracee's command pipes. This should be called

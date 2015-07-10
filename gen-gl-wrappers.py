@@ -343,9 +343,7 @@ code for the functions.
 #include <GL/gl.h>
 #include <GL/glext.h>
 
-void _lss_write(const void*, size_t);
-void _lss_read(void*, size_t);
-__attribute__((noreturn)) void fail(const char*);
+#include "tracee.h"
 
 typedef int GLclampx; // khronos_int32_t
 

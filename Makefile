@@ -32,19 +32,15 @@ source-c/tracee/overrides.o: source-c/tracee/overrides.c
 source-c/tracee/x/x.o: source-c/tracee/x/x.c
 	gcc $(CFLAGS) -o $@ $<
 
-source-c/tracee/gl/gl.o: source-c/tracee/gl/gl.generated.c source-c/tracee/gl/glcompsizes.h
-	gcc $(CFLAGS) -o $@ $<
-source-c/tracee/gl/gl.generated.c: source-c/tracee/gl/gl.xml ./gen-gl-wrappers.py
-	python3 ./gen-gl-wrappers.py source/gl.d $@ < $<
-source-c/tracee/gl/gl.xml:
-	curl -sSf -z $@ -o $@ https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
-
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
 test-progs/xclient.exe: source-c/test-progs/xclient.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l X11 -l savestates
 
+resources/gl.xml:
+	wget -P resources/ -N https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
+
 clean:
-	rm -f libsavestates.so $(OBJS) test-progs/*.exe
+	rm -f libsavestates.so $(OBJS) test-progs/*.exe resources/gl.xml
 
 .PHONY: all clean .FORCE
