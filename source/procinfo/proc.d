@@ -4,9 +4,10 @@ module procinfo.proc;
 
 import std.range;
 import std.typecons;
-import std.algorithm : filter, max;
+import std.algorithm;
 import std.c.linux.linux;
 import core.sys.linux.sys.signalfd : signalfd_siginfo;
+import poll;
 
 import procinfo;
 import models;
@@ -55,20 +56,16 @@ final class ProcInfo {
 	/// Can also throw one of `TraceeExited`, `TraceeSignaled`, or `UnknownEvent`; see `procinfo.tracer`
 	void wait() {
 		while(true) {
-			fd_set fds;
-			FD_ZERO(&fds);
-			FD_SET(commandPipe.readFD, &fds);
-			FD_SET(signals.sigfd, &fds);
+			auto readyFDs = dpoll([commandPipe.readFD, signals.sigfd]);
 			
-			errnoEnforce(select(max(commandPipe.readFD, signals.sigfd)+1, &fds, null, null, null) != -1);
-			
-			if(FD_ISSET(commandPipe.readFD, &fds)) {
+			if(readyFDs.save.canFind(commandPipe.readFD)) {
+				// Have some commands; execute them until empty
 				Nullable!App2WrapperCmd cmd;
 				while(!(cmd = commandPipe.peekCommand()).isNull)
 					commandDispatcher.execute(cmd, this);
 			}
 			
-			if(FD_ISSET(signals.sigfd, &fds)) {
+			if(readyFDs.save.canFind(signals.sigfd)) {
 				// Got a SIGCHLD, call wait to check on process
 				signalfd_siginfo info;
 				auto numRead = linux_read(signals.sigfd, &info, info.sizeof);
