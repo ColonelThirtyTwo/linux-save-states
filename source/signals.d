@@ -5,6 +5,7 @@ import std.c.linux.linux;
 import core.sys.linux.sys.signalfd;
 import std.exception : errnoEnforce;
 
+/+
 private int _sigfd = -1;
 
 /// Gets the signal file descriptor that listens for SIGCHLD. See signalfd (2).
@@ -28,3 +29,4 @@ void initSignals() {
 	_sigfd = signalfd(-1, &signals, SFD_CLOEXEC);
 	errnoEnforce(_sigfd != -1);
 }
++/

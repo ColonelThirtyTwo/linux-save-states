@@ -5,13 +5,16 @@ module procinfo.proc;
 import std.range;
 import std.typecons;
 import std.algorithm;
+import std.variant;
 import std.c.linux.linux;
 import core.sys.linux.sys.signalfd : signalfd_siginfo;
 import poll;
 
+import bindings.libevent;
 import procinfo;
 import models;
 import signals = signals;
+import bindings.libevent;
 
 private alias linux_read = read;
 
@@ -32,6 +35,7 @@ final class ProcInfo {
 	private CommandPipe commandPipe;
 	private CommandPipe glPipe;
 	private CommandDispatcher commandDispatcher;
+	private Events events;
 	Time time;
 	OpenGLState glState;
 	
@@ -39,6 +43,10 @@ final class ProcInfo {
 		this.tracer = tracer;
 		this.commandPipe = commandPipe;
 		this.glPipe = glPipe;
+		
+		events = new Events();
+		events.addFile(commandPipe.readFD);
+		events.addSignal(SIGCHLD);
 	}
 	
 	/// Traced process PID.
@@ -55,8 +63,37 @@ final class ProcInfo {
 	/// This also handles any commands that the process sends through the command pipe, unlike `tracer.wait`.
 	/// Can also throw one of `TraceeExited`, `TraceeSignaled`, or `UnknownEvent`; see `procinfo.tracer`
 	void wait() {
+		bool continuePolling = true;
+		while(continuePolling) {
+			auto ev = events.next;
+			
+			assert(ev.hasValue, "no events left");
+			
+			ev.visit!(
+				(FileEvent ev) {
+					assert(ev.fd == commandPipe.readFD);
+					assert(ev.readable);
+					
+					Nullable!App2WrapperCmd cmd;
+					while(!(cmd = commandPipe.peekCommand()).isNull)
+						commandDispatcher.execute(cmd, this);
+				},
+				(SignalEvent ev) {
+					assert(ev.signal == SIGCHLD);
+					
+					auto waitEv = tracer.wait();
+					assert(waitEv == WaitEvent.PAUSE);
+					
+					continuePolling = false;
+				},
+				(CustomEvent ev) {
+					assert(false);
+				},
+			);
+		}
+		/+
 		while(true) {
-			auto readyFDs = dpoll([commandPipe.readFD, signals.sigfd]);
+			auto readyFDs = dpoll(only(commandPipe.readFD, signals.sigfd));
 			
 			if(readyFDs.save.canFind(commandPipe.readFD)) {
 				// Have some commands; execute them until empty
@@ -81,6 +118,7 @@ final class ProcInfo {
 				return;
 			}
 		}
+		+/
 	}
 	
 	/// Saves the process state.

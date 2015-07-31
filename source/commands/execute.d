@@ -17,6 +17,7 @@ import models;
 import procinfo;
 import savefile;
 import signals = signals;
+import libevent = bindings.libevent;
 version(LineNoise) import bindings.linenoise;
 
 import allcmds = commands.all;
@@ -106,9 +107,10 @@ int cmd_execute(string[] args) {
 	}
 	
 	OpenGLState.init();
+	libevent.initEvents();
 	
 	process = spawn(args);
-	signals.initSignals();
+	//signals.initSignals();
 	process.resume();
 	
 	auto commands = CommandInterpreter();
