@@ -13,7 +13,6 @@ import poll;
 import bindings.libevent;
 import procinfo;
 import models;
-import signals = signals;
 import bindings.libevent;
 
 private alias linux_read = read;
@@ -63,12 +62,9 @@ final class ProcInfo {
 	/// This also handles any commands that the process sends through the command pipe, unlike `tracer.wait`.
 	/// Can also throw one of `TraceeExited`, `TraceeSignaled`, or `UnknownEvent`; see `procinfo.tracer`
 	void wait() {
-		bool continuePolling = true;
-		while(continuePolling) {
-			auto ev = events.next;
-			
-			assert(ev.hasValue, "no events left");
-			
+		bool continueWaiting = true;
+		Event ev;
+		while((ev = events.next(continueWaiting)).hasValue) {
 			ev.visit!(
 				(FileEvent ev) {
 					assert(ev.fd == commandPipe.readFD);
@@ -84,41 +80,14 @@ final class ProcInfo {
 					auto waitEv = tracer.wait();
 					assert(waitEv == WaitEvent.PAUSE);
 					
-					continuePolling = false;
+					continueWaiting = false;
 				},
 				(CustomEvent ev) {
 					assert(false);
 				},
 			);
 		}
-		/+
-		while(true) {
-			auto readyFDs = dpoll(only(commandPipe.readFD, signals.sigfd));
-			
-			if(readyFDs.save.canFind(commandPipe.readFD)) {
-				// Have some commands; execute them until empty
-				Nullable!App2WrapperCmd cmd;
-				while(!(cmd = commandPipe.peekCommand()).isNull)
-					commandDispatcher.execute(cmd, this);
-			}
-			
-			if(readyFDs.save.canFind(signals.sigfd)) {
-				// Got a SIGCHLD, call wait to check on process
-				signalfd_siginfo info;
-				auto numRead = linux_read(signals.sigfd, &info, info.sizeof);
-				errnoEnforce(numRead != -1);
-				assert(numRead == info.sizeof);
-				
-				assert(info.ssi_signo == SIGCHLD);
-				assert(info.ssi_pid == pid);
-				
-				// tracer.wait will throw exceptions if the process terminated
-				auto ev = tracer.wait();
-				assert(ev == WaitEvent.PAUSE);
-				return;
-			}
-		}
-		+/
+		assert(!continueWaiting, "Unexpectedly ran out of event sources");
 	}
 	
 	/// Saves the process state.

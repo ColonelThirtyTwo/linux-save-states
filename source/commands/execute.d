@@ -16,7 +16,6 @@ import commands : CommandName, Help, CliOnly, ShellOnly;
 import models;
 import procinfo;
 import savefile;
-import signals = signals;
 import libevent = bindings.libevent;
 version(LineNoise) import bindings.linenoise;
 
@@ -110,7 +109,6 @@ int cmd_execute(string[] args) {
 	libevent.initEvents();
 	
 	process = spawn(args);
-	//signals.initSignals();
 	process.resume();
 	
 	auto commands = CommandInterpreter();

@@ -95,8 +95,6 @@ final class Events {
 		extern(C) void fileEventCb(int fd, short flags, void* ud) {
 			auto data = cast(EventUserData*) ud;
 			
-			assumeWontThrow(writeln("file event"));
-			
 			data.events.queue.insertBack(Event(FileEvent(fd, 
 				(flags & EV_READ) != 0,
 				(flags & EV_WRITE) != 0
@@ -106,16 +104,12 @@ final class Events {
 		extern(C) void signalEventCb(int sig, short flags, void* ud) {
 			auto data = cast(EventUserData*) ud;
 			
-			assumeWontThrow(writeln("signal event"));
-			
 			assert(flags == EV_SIGNAL);
 			data.events.queue.insertBack(Event(SignalEvent(sig)));
 		}
 		
 		extern(C) void customEventCb(int fd, short flags, void* ud) {
 			auto data = cast(EventUserData*) ud;
-			
-			assumeWontThrow(writeln("custom event"));
 			
 			assert(flags == EV_SIGNAL);
 			data.events.queue.insertBack(Event(CustomEvent(cast(void*)data.handler)));
@@ -156,50 +150,15 @@ final class Events {
 		return cast(void*) ev;
 	}
 	
-	Event next() @property {
-		if(queue.empty) {
+	Event next(bool block=true) @property {
+		if(queue.empty && block) {
 			enforce(event_base_loop(base, EVLOOP_ONCE) != -1);
-			if(queue.empty)
-				return Event();
 		}
+		if(queue.empty)
+			return Event();
 		
 		auto front = queue.front;
 		queue.removeFront();
 		return front;
 	}
-	
-	/+void addFileEvent(int fd, EventCallback callback, bool onReadable=true, bool onWriteable=false) {
-		auto ev = event_new(base, fd, 
-			(onReadable ? EV_READ : 0) |
-			(onWriteable ? EV_WRITE : 0) |
-			EV_PERSIST,
-			&eventCb, pin(new EventData(callback))
-		);
-		enforce(ev != null);
-		enforce(event_add(ev, null) == 0);
-		events ~= ev;
-	}
-	
-	void addSignalEvent(int signal, EventCallback callback) {
-		auto ev = event_new(base, signal, EV_SIGNAL | EV_PERSIST, &eventCb, pin(new EventData(callback)));
-		enforce(ev != null);
-		enforce(event_add(ev, null) == 0);
-		events ~= ev;
-	}
-	
-	void delegate(int) addCustomEvent(EventCallback callback) {
-		auto ev = event_new(base, 0, EV_PERSIST, &eventCb, pin(new EventData(callback)));
-		enforce(ev != null);
-		enforce(event_add(ev, null) == 0);
-		events ~= ev;
-		return (int flags) { event_active(ev, flags, 0); };
-	}
-	
-	void exitLoop() {
-		enforce(event_base_loopexit(base, null) == 0);
-	}
-	
-	void dispatch() {
-		enforce(event_base_dispatch(base) != -1);
-	}+/
 }
