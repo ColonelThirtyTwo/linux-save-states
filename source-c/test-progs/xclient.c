@@ -4,6 +4,7 @@
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 #include <assert.h>
+#include <unistd.h>
 
 extern void lss_pause(void);
 
@@ -49,6 +50,8 @@ int main() {
 	
 	printf("Window created\n");
 	glXSwapBuffers(display, window);
+	
+	sleep(5);
 	
 	glXMakeCurrent(display, None, NULL);
 	glXDestroyContext(display, context);

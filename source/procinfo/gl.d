@@ -5,24 +5,106 @@ import std.stdio;
 import std.typecons;
 import std.exception : enforce, assumeWontThrow;
 import std.string : toStringz, fromStringz;
+import core.stdc.config;
 
 import derelict.glfw3.glfw3;
 import derelict.opengl3.gl;
 
-private extern(C) nothrow errorCallback(int error, const(char)* description) {
-	assumeWontThrow(stderr.writeln("GLFW error: ", description.fromStringz));
+private {
+	extern(C) {
+		void errorCallback(int error, const(char)* description) nothrow {
+			assumeWontThrow(stderr.writeln("GLFW error: ", description.fromStringz));
+		}
+		
+		void cursorCallback(GLFWwindow* window, double x, double y) nothrow {
+			assumeWontThrow(stderr.writeln("cursor pos: ", x, ", ", y));
+		}
+		
+		struct XDisplay {
+			void*ext_data;	/* hook for extension to hang data */
+			void *private1;
+			int fd;			/* Network socket. */
+			int private2;
+			int proto_major_version;/* major version of server's X protocol */
+			int proto_minor_version;/* minor version of servers X protocol */
+			char *vendor;		/* vendor of the server hardware */
+			c_ulong private3;
+			c_ulong private4;
+			c_ulong private5;
+			int private6;
+			void function() resource_alloc;
+			int byte_order;		/* screen byte order, LSBFirst, MSBFirst */
+			int bitmap_unit;	/* padding and data requirements */
+			int bitmap_pad;		/* padding requirements on bitmaps */
+			int bitmap_bit_order;	/* LeastSignificant or MostSignificant */
+			int nformats;		/* number of pixmap formats in list */
+			void *pixmap_format;	/* pixmap format list */
+			int private8;
+			int release;		/* release of the server */
+			void* private9;
+			void* private10;
+			int qlen;		/* Length of input event queue */
+			c_ulong last_request_read; /* seq number of last event read */
+			c_ulong request;	/* sequence number of last request. */
+			void* private11;
+			void* private12;
+			void* private13;
+			void* private14;
+			uint max_request_size; /* maximum number 32 bit words in request*/
+			void *db;
+			void function() private15;
+			char *display_name;	/* "host:display" string used on this connect*/
+			int default_screen;	/* default screen for operations */
+			int nscreens;		/* number of screens on this server*/
+			void *screens;	/* pointer to list of screens */
+			c_ulong motion_buffer;	/* size of motion buffer */
+			c_ulong private16;
+			int min_keycode;	/* minimum defined keycode */
+			int max_keycode;	/* maximum defined keycode */
+			void* private17;
+			void* private18;
+			int private19;
+			char *xdefaults;	/* contents of defaults from server */
+			/* there is more to this structure, but it is private to Xlib */
+		}
+		
+		static assert(XDisplay.sizeof == 296); // size measured from a test C program
+		
+		//XDisplay* glfwGetX11Display();
+		alias glfwGetX11Display_t = XDisplay* function();
+	}
+	
+	__gshared glfwGetX11Display_t glfwGetX11Display;
+	
+	class InternalGLFW3Loader : DerelictGLFW3Loader {
+		protected override void loadSymbols() {
+			super.loadSymbols();
+			bindFunc(cast(void**) &glfwGetX11Display, "glfwGetX11Display");
+		}
+	}
+	
+	static this() {
+		DerelictGLFW3 = new InternalGLFW3Loader();
+	}
 }
 
 /// Contains the OpenGL state.
 struct OpenGLState {
 	private GLFWwindow* window;
 	
+	/// Initializes GLFW. Call once at startup.
 	static void init() {
 		DerelictGL3.load();
 		DerelictGLFW3.load();
 		
 		glfwSetErrorCallback(&errorCallback);
 		enforce(glfwInit() != 0, "Failed to initialize GLFW.");
+	}
+	
+	/// Returns the file descriptor used by X11.
+	/// For use with `select`, `poll`, etc. only.
+	static int fd() {
+		return glfwGetX11Display().fd;
 	}
 	
 	/// Opens a window with the specified dimensions.
@@ -40,6 +122,8 @@ struct OpenGLState {
 		
 		glfwMakeContextCurrent(window);
 		DerelictGL3.reload();
+		
+		glfwSetCursorPosCallback(window, &cursorCallback);
 	}
 	/// ditto
 	void openWindow(Tuple!(uint, uint) size) {

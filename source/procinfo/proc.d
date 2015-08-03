@@ -15,8 +15,6 @@ import procinfo;
 import models;
 import bindings.libevent;
 
-private alias linux_read = read;
-
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
 ProcInfo spawn(string[] args) {
@@ -45,6 +43,8 @@ final class ProcInfo {
 		
 		events = new Events();
 		events.addFile(commandPipe.readFD);
+		events.addFile(glPipe.readFD);
+		events.addFile(OpenGLState.fd);
 		events.addSignal(SIGCHLD);
 	}
 	
@@ -69,12 +69,14 @@ final class ProcInfo {
 		while((ev = events.next(continueWaiting)).hasValue) {
 			ev.visit!(
 				(FileEvent ev) {
-					assert(ev.fd == commandPipe.readFD);
-					assert(ev.readable);
-					
-					Nullable!App2WrapperCmd cmd;
-					while(!(cmd = commandPipe.peekCommand()).isNull)
-						commandDispatcher.execute(cmd, this);
+					if(ev.fd == commandPipe.readFD)
+						return onTracerCommandAvailable();
+					else if(ev.fd == glPipe.readFD)
+						return onGLCommandAvailable();
+					else if(ev.fd == OpenGLState.fd)
+						return onXEventAvailable();
+					else
+						assert(false);
 				},
 				(SignalEvent ev) {
 					assert(ev.signal == SIGCHLD);
@@ -91,6 +93,19 @@ final class ProcInfo {
 		}
 		assert(!continueWaiting, "Unexpectedly ran out of event sources");
 	}
+	
+	private void onTracerCommandAvailable() {
+		Nullable!App2WrapperCmd cmd;
+		while(!(cmd = commandPipe.peekCommand()).isNull)
+			commandDispatcher.execute(cmd, this);
+	}
+	private void onGLCommandAvailable() {
+		assert(false);
+	}
+	private void onXEventAvailable() {
+		glState.pollEvents();
+	}
+	
 	
 	/// Saves the process state.
 	/// The process should be in a ptrace-stop.
