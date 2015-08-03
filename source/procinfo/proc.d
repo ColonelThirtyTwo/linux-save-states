@@ -62,6 +62,8 @@ final class ProcInfo {
 	/// This also handles any commands that the process sends through the command pipe, unlike `tracer.wait`.
 	/// Can also throw one of `TraceeExited`, `TraceeSignaled`, or `UnknownEvent`; see `procinfo.tracer`
 	void wait() {
+		// If true, the tracee is running, and we should wait for it.
+		// If false, the tracee is paused, and we are clearing out the backlog of commands
 		bool continueWaiting = true;
 		Event ev;
 		while((ev = events.next(continueWaiting)).hasValue) {
