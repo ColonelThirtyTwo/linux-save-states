@@ -3,6 +3,7 @@ module procinfo.tracer;
 
 import std.algorithm;
 import std.range;
+import std.variant;
 import std.conv : text, to;
 import std.exception : errnoEnforce;
 import std.path : absolutePath;
@@ -98,23 +99,26 @@ struct ProcTracer {
 		int waitedPID = waitpid(-1, &status, nohang ? WNOHANG : 0);
 		errnoEnforce(waitedPID != -1);
 		if(waitedPID == 0)
-			return WaitEvent.NOEVENT;
+			return WaitEvent();
 		assert(waitedPID == pid, "Unexpected result from waitpid, expected %d, got %d".format(pid, waitedPID));
 		
 		if(WIFEXITED(status))
 			throw new TraceeExited(WEXITSTATUS(status));
-		if(WIFSIGNALED(status))
-			throw new TraceeSignaled(WSTOPSIG(status));
-		if(!WIFSTOPPED(status))
+		else if(WIFSIGNALED(status))
+			throw new TraceeSignaled(WTERMSIG(status));
+		else if(WIFSTOPPED(status)) {
+			isPaused = true;
+		
+			if(WSTOPSIG(status) == SIGTRAP)
+				return WaitEvent(Paused());
+			else if(WSTOPSIG(status) == (SIGTRAP | 0x80))
+				assert(false); // Not monitoring syscalls
+			else {
+				return WaitEvent(Signaled(WSTOPSIG(status)));
+			}
+		} else {
 			throw new UnknownEvent(status);
-		
-		isPaused = true;
-		
-		if(WSTOPSIG(status) == SIGTRAP)
-			return WaitEvent.PAUSE;
-		if(WSTOPSIG(status) == (SIGTRAP | 0x80))
-			return WaitEvent.SYSCALL;
-		throw new UnknownEvent(status);
+		}
 	}
 	
 	/// Continues a process in a ptrace stop.
@@ -166,15 +170,15 @@ struct ProcTracer {
 
 // ////////////////////////////////////////////////////////////////////////////////////////////
 
+/// Returned by wait when the tracee pauses normally.
+struct Paused {}
+/// Returned by wait when the tracee pauses due to a received signal.
+struct Signaled {
+	int signal;
+}
+
 /// Return value of Tracer.wait
-enum WaitEvent {
-	/// Process is paused, and can be saved or loaded
-	PAUSE,
-	/// Process did a system call
-	SYSCALL,
-	
-	NOEVENT,
-};
+alias WaitEvent = Algebraic!(Paused, Signaled);
 
 /// Thrown by wait when the traced process exits normally.
 final class TraceeExited : Exception {

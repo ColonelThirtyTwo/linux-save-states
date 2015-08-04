@@ -82,9 +82,10 @@ final class ProcInfo {
 					assert(ev.signal == SIGCHLD);
 					
 					auto waitEv = tracer.wait();
-					assert(waitEv == WaitEvent.PAUSE);
-					
-					continueWaiting = false;
+					waitEv.visit!(
+						(Paused _) { continueWaiting = false; },
+						(Signaled ev) { tracer.resume(ev.signal); }
+					);
 				},
 				(CustomEvent ev) {
 					assert(false);
