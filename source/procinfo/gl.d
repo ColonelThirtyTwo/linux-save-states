@@ -20,6 +20,8 @@ private {
 			assumeWontThrow(stderr.writeln("cursor pos: ", x, ", ", y));
 		}
 		
+		// Copied+adapted from xlib. Need the struct to access the `fd` field, so that
+		// we can wait on window events as well as file and signals in libevent.
 		struct XDisplay {
 			void*ext_data;	/* hook for extension to hang data */
 			void *private1;
@@ -70,12 +72,12 @@ private {
 		
 		static assert(XDisplay.sizeof == 296); // size measured from a test C program
 		
-		//XDisplay* glfwGetX11Display();
 		alias glfwGetX11Display_t = XDisplay* function();
 	}
 	
 	__gshared glfwGetX11Display_t glfwGetX11Display;
 	
+	// Replace derelict's GLFW loader with one that also loads the internal `glfwGetX11Display` function
 	class InternalGLFW3Loader : DerelictGLFW3Loader {
 		protected override void loadSymbols() {
 			super.loadSymbols();
