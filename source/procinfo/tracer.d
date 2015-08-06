@@ -9,6 +9,7 @@ import std.exception : errnoEnforce;
 import std.path : absolutePath;
 import std.file : getcwd;
 import std.process : execvpe, environment;
+import std.format;
 import std.c.linux.linux;
 import core.sys.linux.errno;
 

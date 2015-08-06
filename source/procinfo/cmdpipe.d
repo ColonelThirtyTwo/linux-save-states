@@ -4,21 +4,14 @@ module procinfo.cmdpipe;
 import std.typetuple;
 import std.traits;
 import std.range;
-import std.exception : enforce, errnoEnforce, assumeUnique;
-import std.conv : to, octal;
-import std.format : format;
+import std.exception : enforce, assumeUnique;
+import std.conv : to;
 import std.typecons : Nullable;
 import std.c.linux.linux;
 import core.stdc.errno;
 
+import procinfo.pipe;
 import procinfo.commands;
-
-/// Thrown by read functions if the pipe was closed before or during a read.
-final class PipeClosedException : Exception {
-	this(string file=__FILE__, size_t line=__LINE__) {
-		super("Pipe closed");
-	}
-}
 
 /// Special file descriptors for the tracee.
 /// Specifying a file descriptor here will cause LSS to ignore it when looking for open file descriptors to save.
@@ -47,11 +40,6 @@ private template ValueOfEnum(SpecialFileDescriptors v) {
 
 enum AllSpecialFileDescriptors = only(staticMap!(ValueOfEnum, EnumMembers!SpecialFileDescriptors));
 
-private extern(C) @nogc nothrow {
-	int pipe2(int* pipefd, int flags);
-	enum O_CLOEXEC = octal!2000000;
-}
-
 private alias linux_write = write;
 private alias linux_read = read;
 
@@ -59,71 +47,21 @@ private alias linux_read = read;
 /// This uses Linux pipes (see pipe(7) and pipe(2)) for communication.
 /// When the process forks to create the tracee, it calls `setupPipes` to place the pipes at a fixed FD (given by `APP_READ_FD` and `APP_WRITE_FD`).
 struct CommandPipe {
-	private int tracerReaderFd, tracerWriterFd;
-	private int traceeReaderFd, traceeWriterFd;
+	Pipe pipe;
+	alias pipe this;
 	
 	/// Creates a command pipe.
 	static CommandPipe create() {
 		CommandPipe cmdpipe;
-		
-		// Create pipes
-		int[2] tracer2traceePipe;
-		int[2] tracee2tracerPipe;
-		
-		errnoEnforce(pipe2(tracer2traceePipe.ptr, O_CLOEXEC) != -1);
-		errnoEnforce(pipe2(tracee2tracerPipe.ptr, O_CLOEXEC) != -1);
-		
-		cmdpipe.tracerReaderFd = tracee2tracerPipe[0];
-		cmdpipe.tracerWriterFd = tracer2traceePipe[1];
-		
-		cmdpipe.traceeReaderFd = tracer2traceePipe[0];
-		cmdpipe.traceeWriterFd = tracee2tracerPipe[1];
+		cmdpipe.pipe = Pipe(true);
 		
 		return cmdpipe;
-	}
-	
-	/// Clones the tracee's pipe endpoins to the hardcoded locations that the tracee expects.
-	/// This should be called in the forked process, before calling exec.
-	void setupTraceePipes(int readfd, int writefd)
-	in {
-		assert(traceeReaderFd != 0, "Tracee pipe was closed");
-		assert(traceeWriterFd != 0, "Tracee pipe was closed");
-	} body {
-		errnoEnforce(dup2(traceeReaderFd, readfd) != -1);
-		errnoEnforce(dup2(traceeWriterFd, writefd) != -1);
-	}
-	
-	/// Closes the tracers copy of the tracee's command pipes. This should be called
-	/// by the parent process after fork.
-	void closeTraceePipes()
-	in {
-		assert(traceeReaderFd != 0, "Tracee pipe was closed");
-		assert(traceeWriterFd != 0, "Tracee pipe was closed");
-	} body {
-		errnoEnforce(close(traceeReaderFd) != -1);
-		errnoEnforce(close(traceeWriterFd) != -1);
-		traceeReaderFd = 0;
-		traceeWriterFd = 0;
-	}
-	
-	/// Returns the file descriptor of the pipe used to read commands from the tracee.
-	/// This should only be used with `select`, et.al. to check for pending data.
-	int readFD() @property const pure nothrow @nogc {
-		return tracerReaderFd;
-	}
-	
-	private void rawWrite(const(void)[] buf) {
-		while(buf.length > 0) {
-			ssize_t numWritten = linux_write(tracerWriterFd, buf.ptr, buf.length);
-			errnoEnforce(numWritten != -1);
-			buf = buf[numWritten..$];
-		}
 	}
 	
 	/// Writes some data to the command stream.
 	void write(T)(T v)
 	if(staticIndexOf!(Unqual!T, int, uint, long, ulong) != -1) {
-		rawWrite((&v)[0..1]);
+		this.pipe.write((&v)[0..1]);
 	}
 	
 	/// ditto
@@ -133,7 +71,7 @@ struct CommandPipe {
 		assert(s.length <= uint.max);
 		this.write(cast(uint) s.length);
 		
-		rawWrite(s);
+		this.pipe.write(s);
 	}
 	
 	/// ditto
@@ -150,11 +88,9 @@ struct CommandPipe {
 	
 	private void rawRead(scope void[] buf) {
 		while(buf.length > 0) {
-			auto numRead = linux_read(tracerReaderFd, buf.ptr, buf.length);
-			errnoEnforce(numRead != -1);
-			if(numRead == 0)
-				throw new PipeClosedException;
-			buf = buf[numRead..$];
+			void[] amntRead = buf;
+			this.pipe.read(amntRead);
+			buf = buf[amntRead.length..$];
 		}
 	}
 	
@@ -189,23 +125,20 @@ struct CommandPipe {
 	
 	/// Similar to read!App2WrapperCmd, but does not block and returns null if no command was received.
 	Nullable!App2WrapperCmd peekCommand() {
-		errnoEnforce(fcntl(tracerReaderFd, F_SETFL, O_NONBLOCK) != -1);
-		scope(exit) errnoEnforce(fcntl(tracerReaderFd, F_SETFL, 0) != -1);
+		this.pipe.blocking = false;
+		scope(exit) this.pipe.blocking = true;
 		
 		int cmdInt;
 		void[] buf = (&cmdInt)[0..1];
-		
-		while(buf.length > 0) {
-			auto numRead = linux_read(tracerReaderFd, buf.ptr, buf.length);
-			if(numRead == 0)
-				return Nullable!App2WrapperCmd();
-			if(numRead == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-				enforce(buf.length == int.sizeof, "Read only part of a command before running out of data");
-				return Nullable!App2WrapperCmd();
-			}
-			errnoEnforce(numRead != -1);
-			buf = buf[numRead..$];
+		try {
+			this.pipe.read(buf);
+		} catch(PipeClosedException) {
+			return Nullable!App2WrapperCmd();
 		}
+		
+		if(buf.ptr is null)
+			return Nullable!App2WrapperCmd();
+		enforce(buf.length == int.sizeof, "Read only part of a command before running out of data");
 		return Nullable!App2WrapperCmd(cast(App2WrapperCmd)cmdInt);
 	}
 }
