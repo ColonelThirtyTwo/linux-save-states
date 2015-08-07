@@ -16,15 +16,6 @@ import derelict.opengl3.types;
 import gl = derelict.opengl3.gl;
 
 private {
-	template Arr2Tuple(alias Arr) {
-		static if(Arr.length == 0)
-			alias Arr2Tuple = TypeTuple!();
-		else static if(Arr.length == 1)
-			alias Arr2Tuple = TypeTuple!(Arr[0]);
-		else
-			alias Arr2Tuple = TypeTuple!(Arr2Tuple!(Arr[0..$/2]), Arr2Tuple!(Arr[$/2..$]));
-	}
-	
 	struct FuncInfoT {
 		string name;
 		string type;
@@ -50,13 +41,6 @@ private {
 			alias ReplaceBufferWithSize = size_t;
 		else
 			alias ReplaceBufferWithSize = T;
-	}
-	
-	template PtrToArray(T) {
-		static if(is(T U : U*))
-			alias PtrToArray = U[];
-		else
-			static assert(false);
 	}
 }
 
@@ -90,10 +74,15 @@ private:
 	
 	void oneCommand(int cmd) {
 		final switch(cmd) {
-		mixin(Funcs.map!(info => `case %d: return this.handle!"%s"();`.format(info.id, info.name)).join("\n"));
+		mixin(Funcs.map!(info => `case %d:
+			static if(__traits(hasMember, this, "handle_func_%s"))
+				return this.handle_func_%s();
+			else
+				return this.handle!"%s"();
+		`.format(info.id, info.name, info.name, info.name)).join("\n"));
 		case 9001:
 			// glFlush called
-			glFlush();
+			gl.glFlush();
 			return;
 		}
 	}
@@ -106,7 +95,7 @@ private:
 			auto partRead = buf;
 			this.pipe.read(partRead);
 			if(partRead.ptr is null)
-				// Yield until we have more.
+				// Yield until we have more data to read.
 				Fiber.yield();
 			else
 				buf = buf[partRead.length..$];

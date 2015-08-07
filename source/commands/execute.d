@@ -105,7 +105,7 @@ int cmd_execute(string[] args) {
 		return 1;
 	}
 	
-	OpenGLState.init();
+	initGl();
 	libevent.initEvents();
 	
 	process = spawn(args);
@@ -120,7 +120,6 @@ int cmd_execute(string[] args) {
 			
 			process.time.incrementFrame();
 			process.time.updateTime(process);
-			process.glState.pollEvents();
 			process.write!false(Wrapper2AppCmd.CMD_CONTINUE);
 		}
 	} catch(CommandQuit ex) {

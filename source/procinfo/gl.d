@@ -90,29 +90,30 @@ private {
 	}
 }
 
-/// Contains the OpenGL state.
-struct OpenGLState {
+/// Initializes GLFW. Call once at startup.
+void initGl() {
+	DerelictGL3.load();
+	DerelictGLFW3.load();
+	
+	glfwSetErrorCallback(&errorCallback);
+	enforce(glfwInit() != 0, "Failed to initialize GLFW.");
+}
+
+/// Returns the file descriptor used by X11.
+/// For use with `select`, `poll`, etc. only.
+/// Requires `initGl` to have been called.
+int x11EventsFd() @property {
+	return glfwGetX11Display().fd;
+}
+
+/// Creates and 
+final class GlWindow {
 	private GLFWwindow* window;
-	
-	/// Initializes GLFW. Call once at startup.
-	static void init() {
-		DerelictGL3.load();
-		DerelictGLFW3.load();
-		
-		glfwSetErrorCallback(&errorCallback);
-		enforce(glfwInit() != 0, "Failed to initialize GLFW.");
-	}
-	
-	/// Returns the file descriptor used by X11.
-	/// For use with `select`, `poll`, etc. only.
-	static int fd() {
-		return glfwGetX11Display().fd;
-	}
 	
 	/// Opens a window with the specified dimensions.
 	/// A window must not already have been opened.
-	void openWindow(uint width, uint height) {
-		assert(!this.hasWindow);
+	void open(uint width, uint height) {
+		assert(!this.isOpen);
 		
 		glfwWindowHint(GLFW_RESIZABLE, 0);
 		/*glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
@@ -128,39 +129,39 @@ struct OpenGLState {
 		glfwSetCursorPosCallback(window, &cursorCallback);
 	}
 	/// ditto
-	void openWindow(Tuple!(uint, uint) size) {
-		this.openWindow(size[0], size[1]);
+	void open(Tuple!(uint, uint) size) {
+		this.open(size[0], size[1]);
 	}
 	
 	/// Closes a window.
 	/// A window must be opened.
-	void closeWindow() {
-		assert(this.hasWindow);
+	void close() {
+		assert(this.isOpen);
 		glfwDestroyWindow(window);
 		window = null;
 	}
 	
 	/// Returns true if a window is opened
-	bool hasWindow() @property pure const nothrow @nogc {
+	bool isOpen() @property pure const nothrow @nogc {
 		return window !is null;
 	}
 	
 	/// Resizes the window.
 	/// A window must be opened.
-	void resizeWindow(uint width, uint height) {
-		assert(this.hasWindow);
+	void resize(uint width, uint height) {
+		assert(this.isOpen);
 		glfwSetWindowSize(window, width, height);
 	}
 	
 	/// ditto
-	void resizeWindow(Tuple!(uint, uint) size) {
-		this.resizeWindow(size[0], size[1]);
+	void resize(Tuple!(uint, uint) size) {
+		this.resize(size[0], size[1]);
 	}
 	
 	/// Returns the window size in pixels.
 	/// A window must be opened.
-	Tuple!(uint,uint) windowSize() @property nothrow @nogc {
-		assert(this.hasWindow);
+	Tuple!(uint,uint) size() @property nothrow @nogc {
+		assert(this.isOpen);
 		int w,h;
 		glfwGetFramebufferSize(window, &w, &h);
 		return Tuple!(uint, uint)(w,h);

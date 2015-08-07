@@ -37,7 +37,7 @@ final class ProcInfo {
 	private Events events;
 	private GlDispatch glDispatch;
 	Time time;
-	OpenGLState glState;
+	GlWindow window;
 	
 	private this(ProcTracer tracer, CommandPipe commandPipe, Pipe glPipe) {
 		this.tracer = tracer;
@@ -47,9 +47,10 @@ final class ProcInfo {
 		events = new Events();
 		events.addFile(commandPipe.readFD);
 		events.addFile(glPipe.readFD);
-		events.addFile(OpenGLState.fd);
+		events.addFile(x11EventsFd);
 		events.addSignal(SIGCHLD);
 		
+		window = new GlWindow();
 		glDispatch = new GlDispatch(glPipe);
 	}
 	
@@ -78,7 +79,7 @@ final class ProcInfo {
 						return onTracerCommandAvailable();
 					else if(ev.fd == glPipe.readFD)
 						return onGLCommandAvailable();
-					else if(ev.fd == OpenGLState.fd)
+					else if(ev.fd == x11EventsFd)
 						return onXEventAvailable();
 					else
 						assert(false);
@@ -109,7 +110,7 @@ final class ProcInfo {
 		glDispatch.poll();
 	}
 	private void onXEventAvailable() {
-		glState.pollEvents();
+		window.pollEvents();
 	}
 	
 	
@@ -122,8 +123,8 @@ final class ProcInfo {
 			registers: tracer.getRegisters(),
 			files: readFiles(pid).array(),
 			
-			windowSize: glState.hasWindow ?
-				typeof(SaveState.windowSize)(glState.windowSize) :
+			windowSize: window.isOpen ?
+				typeof(SaveState.windowSize)(window.size) :
 				typeof(SaveState.windowSize)(),
 		};
 		return state;
@@ -140,13 +141,13 @@ final class ProcInfo {
 		time.loadTime(state);
 		time.updateTime(this);
 		
-		if(state.windowSize.isNull && glState.hasWindow)
-			glState.closeWindow();
+		if(state.windowSize.isNull && window.isOpen)
+			window.close();
 		else if(!state.windowSize.isNull) {
-			if(glState.hasWindow)
-				glState.resizeWindow(state.windowSize);
+			if(window.isOpen)
+				window.resize(state.windowSize);
 			else
-				glState.openWindow(state.windowSize);
+				window.open(state.windowSize);
 		}
 	}
 	

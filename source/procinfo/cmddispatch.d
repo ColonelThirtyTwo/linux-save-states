@@ -32,15 +32,15 @@ private:
 	
 	void cmd_openwindow(ProcInfo proc) {
 		auto size = proc.read!(uint, uint)();
-		proc.glState.openWindow(size[0], size[1]);
+		proc.window.open(size[0], size[1]);
 	}
 	
 	void cmd_closewindow(ProcInfo proc) {
-		proc.glState.closeWindow();
+		proc.window.close();
 	}
 	
 	void cmd_resizewindow(ProcInfo proc) {
 		auto size = proc.read!(uint, uint)();
-		proc.glState.resizeWindow(size[0], size[1]);
+		proc.window.resize(size[0], size[1]);
 	}
 }
