@@ -16,6 +16,7 @@ import core.sys.linux.errno;
 import models : Registers;
 import bindings.syscalls;
 import bindings.ptrace;
+import procinfo.pipe;
 import procinfo.cmdpipe;
 
 private string[] getTraceeEnv() {
@@ -31,7 +32,7 @@ private string[] getTraceeEnv() {
 
 /// Spawns a process in an environment suitable for TASing and traces it.
 /// The process will start paused.
-ProcTracer spawnTraced(string[] args, CommandPipe cmdpipe, CommandPipe glPipe)
+ProcTracer spawnTraced(string[] args, Pipe cmdPipe, Pipe glPipe)
 in {
 	assert(args.length >= 1);
 } body {
@@ -50,7 +51,7 @@ in {
 			errnoEnforce(personality(ADDR_NO_RANDOMIZE) != -1);
 			
 			// Setup command pipes
-			cmdpipe.setupTraceePipes(SpecialFileDescriptors.TRACEE_READ_FD, SpecialFileDescriptors.TRACEE_WRITE_FD);
+			cmdPipe.setupTraceePipes(SpecialFileDescriptors.TRACEE_READ_FD, SpecialFileDescriptors.TRACEE_WRITE_FD);
 			glPipe.setupTraceePipes(SpecialFileDescriptors.GL_READ_FD, SpecialFileDescriptors.GL_WRITE_FD);
 			
 			// Trace self
@@ -68,7 +69,8 @@ in {
 		assert(false);
 	}
 	
-	cmdpipe.closeTraceePipes();
+	cmdPipe.closeTraceePipes();
+	glPipe.closeTraceePipes();
 	
 	// Not in fork; set up ptrace options
 	auto tracer = ProcTracer(pid);

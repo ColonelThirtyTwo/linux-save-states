@@ -51,7 +51,11 @@ int main() {
 	printf("Window created\n");
 	glXSwapBuffers(display, window);
 	
-	sleep(5);
+	glClearColor(0,0,0,0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	printf("Screen cleared\n");
+	glXSwapBuffers(display, window);
 	
 	glXMakeCurrent(display, None, NULL);
 	glXDestroyContext(display, context);

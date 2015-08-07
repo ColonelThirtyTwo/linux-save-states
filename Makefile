@@ -15,13 +15,17 @@ OBJS = \
 	source-c/tracee/tracee.asm.o \
 	source-c/tracee/overrides.o \
 	source-c/tracee/x/x.o \
+	source-c/tracee/gl/buffer.o \
+	source-c/tracee/gl/gl.o \
+	source-c/tracee/gl/gl-generated.o \
 
 CFLAGS = -Wall -Os -g -nostdlib -c -I ./resources/ -I ./source-c/tracee -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
 
 all: libsavestates.so $(TESTPROGS)
 
 libsavestates.so: $(OBJS) source-c/tracee/tracee.ld
-	ld -shared -T source-c/tracee/tracee.ld -init init -o $@ $(OBJS) -L /usr/lib/x86_64-linux-gnu/ -ldl
+#	ld -shared -T source-c/tracee/tracee.ld -init init -o $@ $(OBJS) -L /usr/lib/x86_64-linux-gnu/ -ldl
+	ld -shared -init init -o $@ $(OBJS) -L /usr/lib/x86_64-linux-gnu/ -ldl
 
 source-c/tracee/tracee.o: source-c/tracee/tracee.c
 	gcc $(CFLAGS) -o $@ $<
@@ -39,6 +43,12 @@ test-progs/xclient.exe: source-c/test-progs/xclient.c libsavestates.so
 
 resources/gl.xml:
 	wget -P resources/ -N https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
+
+#source/opengl/gl-generated%d source-c/tracee/gl/gl-generated%c resources/gl-list%txt: resources/gl.xml gen-gl-wrappers.py
+#	python3 gen-gl-wrappers.py source/opengl/gl-generated.d source-c/tracee/gl/gl-generated.c resources/gl-list.txt < resources/gl.xml
+
+source-c/tracee/gl/gl-generated%c resources/gl-list%csv: resources/gl.xml gen-gl-wrappers.py
+	python3 gen-gl-wrappers.py source-c/tracee/gl/gl-generated.c resources/gl-list.csv < resources/gl.xml
 
 clean:
 	rm -f libsavestates.so $(OBJS) test-progs/*.exe resources/gl.xml

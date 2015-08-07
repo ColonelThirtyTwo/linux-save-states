@@ -1,5 +1,6 @@
 /.dub
 /docs.json
+/docs/
 /__dummy.html
 *.o
 *.obj
@@ -7,11 +8,15 @@
 *.so
 *.exe
 *.exe.nolib
+*.sublime-*
 /savestates.db
 /stop-self
 /linux-save-state
 /dub.userprefs
 /dub.selections.json
-/source-c/tracee/gl.generated.c
+/source-c/tracee/gl/gl-generated.c
+/source/opengl/gl-generated.d
 /source-c/tracee/gl.xml
 /source/gl.d
+/resources/gl.xml
+/resources/gl-list.csv

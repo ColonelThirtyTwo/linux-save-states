@@ -11,8 +11,11 @@
 #define TRACEE_DATA_VERSION 1
 #define TRACEE_READ_FD 500
 #define TRACEE_WRITE_FD 501
+#define TRACEE_GL_READ_FD 502
+#define TRACEE_GL_WRITE_FD 503
 
 #include "x/x-data.h"
+#include "gl/gl-data.h"
 
 /// Commands sent from the tracer to the tracee
 typedef enum {
@@ -38,6 +41,7 @@ typedef struct {
 	} clocks;
 	
 	lss_x_data x11;
+	lss_gl_data gl;
 } TraceeData;
 
 extern TraceeData* traceeData;

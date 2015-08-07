@@ -1,6 +1,7 @@
 
 #include "tracee.h"
 #include "x/x.h"
+#include "gl/gl.h"
 
 #define XLIB_ILLEGAL_ACCESS // Lets us access internals of X11 structs
 #include <X11/Xlib.h>
@@ -161,5 +162,6 @@ EXPORT __GLXextFuncPtr glXGetProcAddressARB(const GLubyte* name) {
 }
 
 EXPORT void glXSwapBuffers(Display* dpy, GLXDrawable drawable) {
+	flushGlBuffer();
 	lss_pause();
 }

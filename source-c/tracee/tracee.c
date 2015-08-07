@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 
 #include "tracee.h"
+#include "gl/gl.h"
 
 #ifdef __x86_64__
 	#include "syscalls.x64.c"
@@ -84,6 +85,8 @@ void init() {
 		fail("could not allocate tracee data");
 	
 	traceeData->version = TRACEE_DATA_VERSION;
+	
+	initGlBuffer();
 	
 	syscall3(SYS_write, 2, "lss debug: initialized\n", sizeof("lss debug: initialized\n")-1);
 }

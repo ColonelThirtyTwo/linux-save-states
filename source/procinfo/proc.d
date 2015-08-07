@@ -12,14 +12,16 @@ import poll;
 
 import bindings.libevent;
 import procinfo;
+import procinfo.pipe;
 import models;
+import opengl.gldispatch;
 import bindings.libevent;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
 /// The process will start paused; use `info.tracer.resume` to resume it.
 ProcInfo spawn(string[] args) {
 	auto cmdpipe = CommandPipe.create();
-	auto glpipe = CommandPipe.create();
+	auto glpipe = Pipe(false);
 	
 	auto tracer = spawnTraced(args, cmdpipe, glpipe);
 	return new ProcInfo(tracer, cmdpipe, glpipe);
@@ -30,13 +32,14 @@ ProcInfo spawn(string[] args) {
 final class ProcInfo {
 	private ProcTracer tracer;
 	private CommandPipe commandPipe;
-	private CommandPipe glPipe;
+	private Pipe glPipe;
 	private CommandDispatcher commandDispatcher;
 	private Events events;
+	private GlDispatch glDispatch;
 	Time time;
 	OpenGLState glState;
 	
-	private this(ProcTracer tracer, CommandPipe commandPipe, CommandPipe glPipe) {
+	private this(ProcTracer tracer, CommandPipe commandPipe, Pipe glPipe) {
 		this.tracer = tracer;
 		this.commandPipe = commandPipe;
 		this.glPipe = glPipe;
@@ -46,6 +49,8 @@ final class ProcInfo {
 		events.addFile(glPipe.readFD);
 		events.addFile(OpenGLState.fd);
 		events.addSignal(SIGCHLD);
+		
+		glDispatch = new GlDispatch(glPipe);
 	}
 	
 	/// Traced process PID.
@@ -101,7 +106,7 @@ final class ProcInfo {
 			commandDispatcher.execute(cmd, this);
 	}
 	private void onGLCommandAvailable() {
-		assert(false);
+		glDispatch.poll();
 	}
 	private void onXEventAvailable() {
 		glState.pollEvents();
