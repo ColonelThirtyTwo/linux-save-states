@@ -134,10 +134,12 @@ private:
 	void handle(string funcname)() {
 		enum Info = FuncInfo[funcname];
 		
-		
 		static if(Info.type == "alias" || Info.type == "placeholder")
-			assert(false, "Received  for a "~Info.type~" function");
-		else static if(Info.type == "basic")
+			assert(false, "Received command for function "~funcname~" (a "~Info.type~" function)");
+		else static if(!is(typeof(__traits(getMember, gl, funcname)))) {
+			pragma(msg, "Warning: derelict does not expose function "~funcname~"; will not generate handler.");
+			assert(false, "Received command for function "~funcname~" (handler omitted)");
+		} else static if(Info.type == "basic")
 			return handle_basic!(funcname)();
 		else static if(Info.type == "gen")
 			return handle_gen!(funcname)();
