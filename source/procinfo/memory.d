@@ -104,7 +104,7 @@ private MemoryMap parseMapsLine(string line) {
 	auto match = matchFirst(line, mapsLineRE);
 	enforce(match, "Couldn't parse maps line: "~line);
 	
-	MemoryMap map;
+	MemoryMap map = new MemoryMap();
 	map.begin = match[1].to!ulong(16);
 	map.end = match[2].to!ulong(16);
 	

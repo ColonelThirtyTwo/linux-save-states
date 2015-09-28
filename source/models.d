@@ -7,12 +7,13 @@ import std.typecons;
 
 import bindings.ptrace : user_regs_struct, user_fpregs_struct;
 
+/// Clock entry
 struct Clock {
 	ulong sec, nsec;
 }
 
 /// Save state
-struct SaveState {
+class SaveState {
 	/// ID of state. Null if the state isn't saved.
 	Nullable!(ulong, 0) id;
 	
@@ -36,7 +37,7 @@ struct SaveState {
 	/// Window dimensions, or null if a window isn't opened.
 	Nullable!(Tuple!(uint, uint)) windowSize;
 	
-	/// Returns the location of the program break (see brk (2))
+	/// Returns the location of the program break (see `brk (2)`)
 	ulong brk() @property const pure {
 		auto heapMap = maps.find!(x => x.name == "[heap]");
 		if(!heapMap.empty)
@@ -50,6 +51,12 @@ struct SaveState {
 		assert(!dataSegment.empty);
 		return dataSegment.front.end;
 	}
+	
+	auto toTuple() {
+		return tuple(id, name,
+			
+		);
+	}
 }
 
 /// Memory map flags
@@ -61,7 +68,7 @@ enum MemoryMapFlags {
 }
 
 /// Memory map entry
-struct MemoryMap {
+class MemoryMap {
 	/// ID of the memory map. Null if the map isn't saved.
 	Nullable!(ulong, 0) id;
 	
@@ -89,7 +96,7 @@ struct MemoryMap {
 }
 
 /// File descriptor entry
-struct FileDescriptor {
+class FileDescriptor {
 	/// ID of the file. Null if the file isn't saved.
 	Nullable!(ulong, 0) id;
 	

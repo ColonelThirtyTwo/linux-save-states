@@ -38,7 +38,7 @@ int cmd_show_state(string[] args) {
 	mixin(Transaction!saveFile);
 	
 	auto state = saveFile.loadState(args[0]);
-	if(state.isNull) {
+	if(state is null) {
 		stderr.writeln("No such state: "~args[0]);
 		return 1;
 	}
@@ -87,7 +87,7 @@ int cmd_dump_map(string[] args) {
 	mixin(Transaction!saveFile);
 
 	auto map = saveFile.getMap(id);
-	if(map.isNull) {
+	if(map is null) {
 		stderr.writeln("Map not found");
 		return 1;
 	}
@@ -120,7 +120,7 @@ int cmd_replace_map(string[] args) {
 	mixin(Transaction!saveFile);
 	
 	auto map = saveFile.getMap(id);
-	if(map.isNull) {
+	if(map is null) {
 		stderr.writeln("Map not found");
 		return 1;
 	}

@@ -39,11 +39,11 @@ int cmd_load(string[] args) {
 	mixin(Transaction!saveFile);
 	
 	auto state = saveFile.loadState(args[0]);
-	if(state.isNull) {
+	if(state is null) {
 		writeln("No such state.");
 		return 1;
 	}
-	process.loadState(state.get);
+	process.loadState(state);
 	
 	writeln("state loaded");
 	return 0;

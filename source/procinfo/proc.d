@@ -117,16 +117,14 @@ final class ProcInfo {
 	/// Saves the process state.
 	/// The process should be in a ptrace-stop.
 	SaveState saveState(string name) {
-		SaveState state = {
-			name: name,
-			maps: readMemoryMaps(pid).array(),
-			registers: tracer.getRegisters(),
-			files: readFiles(pid).array(),
-			
-			windowSize: window.isOpen ?
+		SaveState state = new SaveState();
+		state.name = name;
+		state.maps = readMemoryMaps(pid).array();
+		state.registers = tracer.getRegisters();
+		state.files = readFiles(pid).array();
+		state.windowSize = window.isOpen ?
 				typeof(SaveState.windowSize)(window.size) :
-				typeof(SaveState.windowSize)(),
-		};
+				typeof(SaveState.windowSize)();
 		return state;
 	}
 	

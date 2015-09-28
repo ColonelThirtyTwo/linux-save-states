@@ -33,30 +33,30 @@ auto readFiles(pid_t pid) {
 			auto link = canSave(pid, fd);
 			if(!link[0]) {
 				stderr.writeln("! File descriptor %d won't be saved: %s".format(fd, link[1]));
-				return Nullable!FileDescriptor();
+				return null;
 			}
 			
 			string fdInfoText = cast(string) read("/proc/"~to!string(pid)~"/fdinfo/"~to!string(fd));
 			auto fdInfoMatch = fdInfoText.matchFirst(fdInfoRE);
 			assert(fdInfoMatch, "Error parsing file descriptor info. Contents:\n"~fdInfoText);
 			
-			FileDescriptor file = {
-				descriptor: fd,
-				fileName: link[1],
-				pos: fdInfoMatch[1].to!ulong,
-				flags: fdInfoMatch[2].to!int(8),
-			};
-			return Nullable!FileDescriptor(file);
+			FileDescriptor file = new FileDescriptor();
+			
+			file.descriptor = fd;
+			file.fileName = link[1];
+			file.pos = fdInfoMatch[1].to!ulong;
+			file.flags = fdInfoMatch[2].to!int(8);
+			
+			return file;
 		})
-		.filter!(x => !x.isNull)
-		.map!(x => x.get)
+		.filter!(x => x !is null)
 	;
 }
 
 /// Closes all open files of a process and loads the passed list of files.
 /// stdin/out/err and the command pipes are skipped.
 void loadFiles(Range)(ProcInfo proc, Range newFiles)
-if(isInputRange!Range && is(ElementType!Range : FileDescriptor)) {
+if(isInputRange!Range && is(ElementType!Range : const(FileDescriptor))) {
 	auto pid = proc.pid;
 	getFileDescriptors(pid)
 		.filter!(delegate(fd) {

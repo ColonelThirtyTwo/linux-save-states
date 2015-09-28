@@ -113,59 +113,61 @@ struct SaveStatesFile {
 	}
 	
 	/// Loads a state by its name. Returns null if not found.
-	Nullable!SaveState loadState(string name) {
+	SaveState loadState(string stateName) {
 		auto stmt = db.prepare(`SELECT * FROM SaveStates WHERE label = ?;`);
-		stmt.bind(1, name);
+		stmt.bind(1, stateName);
 		auto results = stmt.execute();
 		
 		if(results.empty)
-			return Nullable!SaveState();
+			return null;
 		
 		auto result = results.front;
 		
 		ubyte[] registersBytes = result.peek!(ubyte[])(2);
 		enforce(registersBytes.length == Registers.sizeof, "Saved registers do not match the current architecture.");
 		
-		SaveState state = {
-			id: result.peek!ulong(0),
-			name: result.peek!string(1),
-			registers: *(cast(Registers*) registersBytes),
-			realtime: {sec: result.peek!ulong(3), nsec: result.peek!ulong(4)},
-			monotonic: {sec: result.peek!ulong(5), nsec: result.peek!ulong(6)},
+		SaveState state = new SaveState();
+		with(state) {
+			id = result.peek!ulong(0);
+			name = result.peek!string(1);
+			registers = *(cast(Registers*) registersBytes);
 			
-			windowSize: result.columnType(7) == SqliteType.NULL ?
+			realtime = Clock(result.peek!ulong(3), result.peek!ulong(4));
+			monotonic = Clock(result.peek!ulong(5), result.peek!ulong(6));
+			
+			windowSize = result.columnType(7) == SqliteType.NULL ?
 				typeof(SaveState.windowSize)() :
-				typeof(SaveState.windowSize)(tuple(result.peek!uint(7), result.peek!uint(8)))
-		};
+				typeof(SaveState.windowSize)(tuple(result.peek!uint(7), result.peek!uint(8)));
+			
+			stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);
+			stmt.bind(1, id.get);
+			maps = stmt.execute().map!(x => readMemoryMap(x)).array();
+			
+			stmt = db.prepare(`SELECT * FROM Files WHERE saveState = ?;`);
+			stmt.bind(1, id.get);
+			files = stmt.execute().map!(x => readFileDescriptor(x)).array();
+		}
 		
-		stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE saveState = ?;`);
-		stmt.bind(1, state.id.get);
-		state.maps = stmt.execute().map!(x => readMemoryMap(x)).array();
-		
-		stmt = db.prepare(`SELECT * FROM Files WHERE saveState = ?;`);
-		stmt.bind(1, state.id.get);
-		state.files = stmt.execute().map!(x => readFileDescriptor(x)).array();
-		
-		return Nullable!SaveState(state);
+		return state;
 	}
 	
 	/// Loads one map from the database
-	Nullable!MemoryMap getMap(ulong id) {
+	MemoryMap getMap(ulong id) {
 		auto stmt = db.prepare(`SELECT * FROM MemoryMappings WHERE rowid = ?;`);
 		stmt.bind(1, id);
 		auto results = stmt.execute();
 		
 		if(results.empty)
-			return Nullable!MemoryMap();
+			return null;
 		auto row = results.front;
-		return Nullable!MemoryMap(readMemoryMap(row));
+		return readMemoryMap(row);
 	}
 	
 	/**
 	 * Writes a modified memory map to the savefile.
 	 * TODO: Currently only updates the contents, and only works on anonymous maps.
 	 */
-	void updateMap(const ref MemoryMap map)
+	void updateMap(const MemoryMap map)
 	in {
 		assert(!map.id.isNull);
 	} body {
@@ -195,33 +197,35 @@ struct SaveStatesFile {
 	}
 	
 	private MemoryMap readMemoryMap(Row row) {
-		MemoryMap map = {
-			id: row.peek!ulong(0),
-			begin: row.peek!ulong(2),
-			end: row.peek!ulong(3),
-			flags:
+		MemoryMap map = new MemoryMap();
+		with(map) {
+			id = row.peek!ulong(0);
+			begin = row.peek!ulong(2);
+			end = row.peek!ulong(3);
+			flags =
 				(row.peek!bool(4) ? MemoryMapFlags.READ : 0) |
 				(row.peek!bool(5) ? MemoryMapFlags.WRITE : 0) |
 				(row.peek!bool(6) ? MemoryMapFlags.EXEC : 0) |
-				(row.peek!bool(7) ? MemoryMapFlags.PRIVATE : 0),
-			name: row.peek!string(8),
-			offset: row.peek!ulong(9),
-			contents: cast(const(ubyte)[]) uncompress(
+				(row.peek!bool(7) ? MemoryMapFlags.PRIVATE : 0);
+			name = row.peek!string(8);
+			offset = row.peek!ulong(9);
+			contents = cast(const(ubyte)[]) uncompress(
 				row.peek!(ubyte[])(10),
 				row.peek!ulong(3) - row.peek!ulong(2)
-			),
-		};
+			);
+		}
 		return map;
 	}
 	
 	private FileDescriptor readFileDescriptor(Row row) {
-		FileDescriptor file = {
-			id: row.peek!ulong(0),
-			descriptor: row.peek!int(2),
-			fileName: row.peek!string(3),
-			pos: row.peek!ulong(4),
-			flags: row.peek!int(5),
-		};
+		FileDescriptor file = new FileDescriptor();
+		with(file) {
+			id = row.peek!ulong(0);
+			descriptor = row.peek!int(2);
+			fileName = row.peek!string(3);
+			pos = row.peek!ulong(4);
+			flags = row.peek!int(5);
+		}
 		return file;
 	}
 }
