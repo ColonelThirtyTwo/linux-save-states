@@ -110,7 +110,7 @@ struct ProcTracer {
 		else if(WIFSIGNALED(status))
 			throw new TraceeSignaled(WTERMSIG(status));
 		else if(WIFSTOPPED(status)) {
-			isPaused = true;
+			debug isPaused = true;
 		
 			if(WSTOPSIG(status) == SIGTRAP)
 				return WaitEvent(Paused());
@@ -137,7 +137,7 @@ struct ProcTracer {
 			assert(false, "Got "~to!string(ev));
 		}
 		
-		isPaused = false;
+		debug isPaused = false;
 		
 		errnoEnforce(err != -1);
 	}
