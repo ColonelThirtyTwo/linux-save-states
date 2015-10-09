@@ -20,6 +20,10 @@
 			"libs": ["linenoise"]
 		},
 		{
+			"name": "skip-opengl-dispatch",
+			"versions": ["SkipOpenGLDispatch"]
+		},
+		{
 			"name": "no-linenoise"
 		}
 	]

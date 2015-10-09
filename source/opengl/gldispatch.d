@@ -22,13 +22,17 @@ private {
 		int id;
 	}
 	
-	enum Funcs = import("gl-list.csv")
-		.splitter("\n")
-		.map!(row => row.split(","))
-		.filter!(row => row.length == 3)
-		.map!(row => FuncInfoT(row[0], row[1], row[2].to!int))
-		.array
-	;
+	version(SkipOpenGLDispatch) {
+		enum FuncInfoT[] Funcs = [];
+	} else {
+		enum Funcs = import("gl-list.csv")
+			.splitter("\n")
+			.map!(row => row.split(","))
+			.filter!(row => row.length == 3)
+			.map!(row => FuncInfoT(row[0], row[1], row[2].to!int))
+			.array
+		;
+	}
 	
 	enum FuncInfo = Funcs.map!(info => tuple(info.name, info)).assocArray;
 	

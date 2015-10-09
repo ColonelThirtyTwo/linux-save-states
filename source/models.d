@@ -5,6 +5,7 @@ import std.algorithm;
 import std.range;
 import std.typecons;
 import std.exception;
+import std.typetuple;
 
 import bindings.ptrace : user_regs_struct, user_fpregs_struct;
 
@@ -19,8 +20,21 @@ if(is(T == struct)) {
 	return *(cast(const(T)*) (blob.ptr));
 }
 
+// ReprTuple annotation for unique columns
+struct ModelUnique(T) {
+	T _val;
+	alias _val this;
+}
+
+// ReprTuple annotation for foreign key columns
+struct ForeignKey(PointsTo) {
+	ulong id;
+	alias id this;
+}
+
 /// Clock entry
 struct Clock {
+	///
 	ulong sec, nsec;
 }
 
@@ -65,8 +79,7 @@ final class SaveState {
 	}
 	
 	alias ReprTuple = Tuple!(
-		//ulong, "id",
-		string, "name",
+		ModelUnique!string, "name",
 		const(ubyte)[], "registers",
 		ulong, "realtime_sec",
 		ulong, "realtime_nsec",
@@ -76,7 +89,7 @@ final class SaveState {
 		Nullable!uint, "windowSize_y",
 	);
 	ReprTuple toTuple() {
-		return ReprTuple(name, registers.struct2blob, realtime.sec, realtime.nsec, monotonic.sec, monotonic.nsec,
+		return ReprTuple(ModelUnique!string(name), registers.struct2blob, realtime.sec, realtime.nsec, monotonic.sec, monotonic.nsec,
 			windowSize.isNull ? Nullable!uint() : Nullable!uint(windowSize.get[0]),
 			windowSize.isNull ? Nullable!uint() : Nullable!uint(windowSize.get[1]),
 		);
@@ -97,6 +110,7 @@ final class SaveState {
 		}
 		return state;
 	}
+	alias SubFields = TypeTuple!("maps", "files");
 }
 
 /// Memory map flags
@@ -134,8 +148,10 @@ final class MemoryMap {
 		assert(!contents || contents.length == (end - begin));
 	}
 	
+	// serialization info:
+	
 	alias ReprTuple = Tuple!(
-		SaveState, "state",
+		ForeignKey!SaveState, "state",
 		ulong, "begin",
 		ulong, "end",
 		uint, "flags",
@@ -146,9 +162,9 @@ final class MemoryMap {
 	
 	ReprTuple toTuple(SaveState parent) {
 		assert(parent.maps.canFind(this));
-		return ReprTuple(parent, begin, end, flags, name, offset, contents);
+		return ReprTuple(ForeignKey!SaveState(parent.id), begin, end, flags, name, offset, contents);
 	}
-	typeof(this) fromTuple(ulong thisId, ReprTuple tup) {
+	static typeof(this) fromTuple(ulong thisId, ReprTuple tup) {
 		auto map = new MemoryMap();
 		with(map) {
 			id = thisId;
@@ -180,7 +196,7 @@ final class FileDescriptor {
 	int flags;
 	
 	alias ReprTuple = Tuple!(
-		SaveState, "state",
+		ForeignKey!SaveState, "state",
 		int, "descriptor",
 		string, "fileName",
 		ulong, "pos",
@@ -189,9 +205,9 @@ final class FileDescriptor {
 	
 	ReprTuple toTuple(SaveState parent) {
 		assert(parent.files.canFind(this));
-		return ReprTuple(parent, descriptor, fileName, pos, flags);
+		return ReprTuple(ForeignKey!SaveState(parent.id), descriptor, fileName, pos, flags);
 	}
-	typeof(this) fromTuple(ulong thisId, ReprTuple tup) {
+	static typeof(this) fromTuple(ulong thisId, ReprTuple tup) {
 		auto map = new FileDescriptor();
 		with(map) {
 			id = thisId;
@@ -209,3 +225,6 @@ struct Registers {
 	user_regs_struct general;
 	user_fpregs_struct floating;
 }
+
+/// Models to generate schemas for.
+alias AllModels = TypeTuple!(SaveState, MemoryMap, FileDescriptor);
