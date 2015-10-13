@@ -23,7 +23,7 @@ int cmd_list_states(string[] args) {
 
 	mixin(Transaction!saveFile);
 
-	foreach(label; saveFile.listStates())
+	foreach(label; saveFile.list!(SaveState, "name")())
 		writeln(label);
 	return 0;
 }
@@ -34,10 +34,10 @@ int cmd_list_states(string[] args) {
 int cmd_show_state(string[] args) {
 	mixin(ARG_HELP!cmd_show_state);
 	mixin(ARG_NUM_REQUIRED!(cmd_show_state, 1));
-
+	
 	mixin(Transaction!saveFile);
 	
-	auto state = saveFile.loadState(args[0]);
+	auto state = saveFile.loadByField!(SaveState, "name")(args[0]);
 	if(state is null) {
 		stderr.writeln("No such state: "~args[0]);
 		return 1;
@@ -86,7 +86,7 @@ int cmd_dump_map(string[] args) {
 
 	mixin(Transaction!saveFile);
 
-	auto map = saveFile.getMap(id);
+	auto map = saveFile.loadByID!(MemoryMap)(id);
 	if(map is null) {
 		stderr.writeln("Map not found");
 		return 1;
@@ -101,6 +101,8 @@ int cmd_dump_map(string[] args) {
 	
 	return 0;
 }
+
+/+
 
 @("<mapid> < somefile.bin")
 @(`Replaces the contents of the specified memory map with stdin.
@@ -119,7 +121,7 @@ int cmd_replace_map(string[] args) {
 	
 	mixin(Transaction!saveFile);
 	
-	auto map = saveFile.getMap(id);
+	auto map = saveFile.loadByID!(MemoryMap)(id);
 	if(map is null) {
 		stderr.writeln("Map not found");
 		return 1;
@@ -134,12 +136,12 @@ int cmd_replace_map(string[] args) {
 	}
 	map.contents = newContents;
 	
-	saveFile.updateMap(map);
+	saveFile.save(map);
 	
 	return 0;
 }
 
-/+
+
 @("<mapid> <pid>")
 @(`Loads the contents of the map specified by <mapid> into the memory of the process specified by <pid>.`)
 int cmd_load_map(string[] args) {

@@ -3,6 +3,7 @@ module commands.savestate;
 
 import std.stdio;
 
+import models;
 import savefile;
 import commands;
 import global;
@@ -20,7 +21,7 @@ int cmd_save(string[] args) {
 		// Put this in a new scope so that "state saved" prints when the transaction is commited and the state
 		// is actually saved.
 		mixin(Transaction!saveFile);
-		saveFile.writeState(process.saveState(args[0]));
+		saveFile.save(process.saveState(args[0]));
 	}
 	
 	writeln("state saved");
@@ -38,7 +39,7 @@ int cmd_load(string[] args) {
 	}
 	mixin(Transaction!saveFile);
 	
-	auto state = saveFile.loadState(args[0]);
+	auto state = saveFile.loadByField!(SaveState, "name")(args[0]);
 	if(state is null) {
 		writeln("No such state.");
 		return 1;
