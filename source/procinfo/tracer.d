@@ -19,6 +19,7 @@ import bindings.ptrace;
 import procinfo.pipe;
 import procinfo.cmdpipe;
 
+/// Creates an environment for the tracee, setting up `LD_PRELOAD` to load the tracee library.
 private string[] getTraceeEnv() {
 	auto envAA = environment.toAA();
 	envAA["LD_PRELOAD"] = absolutePath("libsavestates.so");
@@ -82,8 +83,10 @@ in {
 	return tracer;
 }
 
-/// Structure for tracing a process using ptrace.
-/// Create by using `spawnTraced`
+/++ Structure for controlling a process using ptrace.
+ +
+ + Created via spawnTraced.
+++/
 struct ProcTracer {
 	pid_t pid;
 	debug private bool isPaused = false;
@@ -124,9 +127,11 @@ struct ProcTracer {
 		}
 	}
 	
-	/// Continues a process in a ptrace stop.
-	/// If `untilSyscall` is true, then the process will continue until the next system call (PTRACE_SYSCALL),
-	/// otherwise it will continue until it receives a signal or other condition (PTRACE_CONT).
+	/++ Continues a process in a ptrace stop.
+	 +
+	 + If `untilSyscall` is true, then the process will continue until the next system call (PTRACE_SYSCALL),
+	 + otherwise it will continue until it receives a signal or other condition (PTRACE_CONT).
+	++/
 	void resume(uint signal=0, bool untilSyscall=false) {
 		debug assert(isPaused, "wait called on paused process");
 		
@@ -180,7 +185,7 @@ struct Signaled {
 	int signal;
 }
 
-/// Return value of Tracer.wait
+/// Return value of $(D Tracer.wait)
 alias WaitEvent = Algebraic!(Paused, Signaled);
 
 /// Thrown by wait when the traced process exits normally.

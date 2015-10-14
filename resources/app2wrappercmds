@@ -1,3 +1,4 @@
+// List of commands sent from the tracee to the tracer, used in both C and D code.
 // See wrapper2appcmds for a description of the format.
 CMD_TEST = 1,        // Test command. Args: uint test
 CMD_OPENWINDOW = 2,  // Opens a GL window. Args: uint width, uint height

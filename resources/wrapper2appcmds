@@ -1,9 +1,9 @@
-// Binary protocol for the wrapper to communicate with the TASed process.
+// Binary protocol for the tracer to communicate with the tracee process.
 // Each command begins with a 32-bit command ID taken from the following list,
 // and is followed by zero or more arguments depending on the command.
 
 // Argument types:
-// ptr: A pointer. length = sizeof(size_t)
+// ptr: A pointer. length is sizeof(size_t)
 // [u]int: A 32-bit integer in the machine's endinanness, optionally unsigned
 // [u]long: A 64-bit integer in the machine's endianness, optionally unsigned
 // string: A uint `length` followed by `length` UTF-8 bytes.

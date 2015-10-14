@@ -8,6 +8,11 @@ import std.typecons : Nullable;
 import procinfo.proc;
 import procinfo.commands;
 
+/++
+ + Takes a command ID and runs the appropriate command.
+ +
+ + Commands are specified as private methods of the form `cmd_somecommand` (all lowercase).
+++/
 struct CommandDispatcher {
 	void execute(App2WrapperCmd cmd, ProcInfo proc) {
 		final switch(cmd) {

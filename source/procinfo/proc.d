@@ -27,8 +27,9 @@ ProcInfo spawn(string[] args) {
 	return new ProcInfo(tracer, cmdpipe, glpipe);
 }
 
-/// Process info structure, which holds several other process-related structures
-/// for controlling and getting info from a process.
+/++ Process info structure, which holds several other process-related structures
+ + for controlling and getting info from a process.
+++/
 final class ProcInfo {
 	private ProcTracer tracer;
 	private CommandPipe commandPipe;

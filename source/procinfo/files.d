@@ -24,9 +24,12 @@ private {
 	alias fdInfoRE = ctRegex!(`^pos:\s+([0-9]+)\s+flags:\s+([0-9]+)\s*$`);
 }
 
-/// Reads all of the file descriptors of a process and returns a range of FileDescriptor structs.
-/// The process should be paused during this.
-/// Stdin/out/err and the command pipes are excluded from being saved.
+/++
+ + Reads all of the file descriptors of a process and returns a range of FileDescriptor structs.
+ +
+ + The process should be paused during this. Descriptors in $(D procinfo.cmdpipe.AllSpecialFileDescriptors)
+ + will be ignored.
+++/
 auto readFiles(pid_t pid) {
 	return getFileDescriptors(pid)
 		.map!(delegate(fd) {
@@ -53,8 +56,11 @@ auto readFiles(pid_t pid) {
 	;
 }
 
-/// Closes all open files of a process and loads the passed list of files.
-/// stdin/out/err and the command pipes are skipped.
+/++ Closes all open files of a process and loads the passed list of files.
+ +
+ + The process should be paused during this. Descriptors in $(D procinfo.cmdpipe.AllSpecialFileDescriptors)
+ + will be ignored.
+++/
 void loadFiles(Range)(ProcInfo proc, Range newFiles)
 if(isInputRange!Range && is(ElementType!Range : const(FileDescriptor))) {
 	auto pid = proc.pid;
@@ -79,8 +85,11 @@ if(isInputRange!Range && is(ElementType!Range : const(FileDescriptor))) {
 		));
 }
 
-/// Returns a range of int file descriptors.
-/// Skips stdin/out/err and the command pipes.
+/++ Returns a range of int file descriptors.
+ +
+ + The process should be paused during this. Descriptors in $(D procinfo.cmdpipe.AllSpecialFileDescriptors)
+ + will be ignored.
+++/
 auto getFileDescriptors(pid_t pid) {
 	return dirEntries("/proc/"~to!string(pid)~"/fd/", SpanMode.shallow)
 		.map!(x => x.name.findSplitAfter("/fd/")[1].to!int)

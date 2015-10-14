@@ -24,6 +24,7 @@ void initEvents() {
 	event_set_log_callback(&logCb);
 }
 
+///
 struct EventSource {
 	private {
 		Events owner;
@@ -37,24 +38,26 @@ struct EventSource {
 	}
 }
 
-
-
-static struct FileEvent {
+/// File event, triggered when a file becomes read or writeable
+struct FileEvent {
 	EventSource* source;
 	int fd;
 	bool readable;
 	bool writeable;
 }
 
-static struct SignalEvent {
+/// Signal event, triggered when the process receives a signal
+struct SignalEvent {
 	EventSource* source;
 	int signal;
 }
 
-static struct CustomEvent {
+/// Custom event, triggered manually
+struct CustomEvent {
 	EventSource* source;
 }
 
+/// Event type
 alias Event = Algebraic!(FileEvent, SignalEvent, CustomEvent);
 
 

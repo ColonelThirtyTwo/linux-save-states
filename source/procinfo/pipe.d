@@ -18,7 +18,11 @@ private extern(C) @nogc nothrow {
 	enum O_CLOEXEC = octal!2000000;
 }
 
-/// Struct for setting up and basic IO with a bidirectional pipe.
+/++
+ + Bidirectional communication between the tracer and tracee.
+ +
+ + This uses Linux pipes for communication.
+++/
 struct Pipe {
 	private int tracerReaderFd, tracerWriterFd;
 	private int traceeReaderFd, traceeWriterFd;

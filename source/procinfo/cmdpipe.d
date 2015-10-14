@@ -1,4 +1,4 @@
-/// Command Pipe
+/// Pipe wrapper specialized for sending commands
 module procinfo.cmdpipe;
 
 import std.typetuple;
@@ -38,14 +38,13 @@ private template ValueOfEnum(SpecialFileDescriptors v) {
 	enum int ValueOfEnum = cast(int) v;
 }
 
+/// Range of special file descriptors. Contains the values of `SpecialFileDescriptors`
 enum AllSpecialFileDescriptors = only(staticMap!(ValueOfEnum, EnumMembers!SpecialFileDescriptors));
 
 private alias linux_write = write;
 private alias linux_read = read;
 
 /// Command pipe used for communicating with the traced process.
-/// This uses Linux pipes (see pipe(7) and pipe(2)) for communication.
-/// When the process forks to create the tracee, it calls `setupPipes` to place the pipes at a fixed FD (given by `APP_READ_FD` and `APP_WRITE_FD`).
 struct CommandPipe {
 	Pipe pipe;
 	alias pipe this;

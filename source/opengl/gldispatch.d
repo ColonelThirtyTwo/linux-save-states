@@ -1,4 +1,5 @@
 
+/// Dispatches OpenGL commands
 module opengl.gldispatch;
 
 import std.typetuple;
@@ -48,6 +49,12 @@ private {
 	}
 }
 
+/++
+ + Dispatches OpenGL commands from a pipe.
+ +
+ + To simplify the tracer design and improve performance, GL commands are processed separately from the
+ + regular commands. 
+++/
 final class GlDispatch {
 	
 	this(Pipe pipe) {
