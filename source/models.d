@@ -6,6 +6,7 @@ import std.range;
 import std.typecons;
 import std.exception;
 import std.typetuple;
+import std.conv;
 
 import bindings.ptrace : user_regs_struct, user_fpregs_struct;
 
@@ -36,6 +37,10 @@ struct ForeignKey(PointsTo) {
 struct Clock {
 	///
 	ulong sec, nsec;
+	
+	string toString() @property const {
+		return text(sec, "s ", nsec, "ns");
+	}
 }
 
 /// Save state

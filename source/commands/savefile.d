@@ -43,7 +43,7 @@ int cmd_show_state(string[] args) {
 		return 1;
 	}
 	
-	writeln("Save state "~state.name~" (id: "~state.id.get.to!string~")");
+	writeln("Save state `"~state.name~"` (id: "~state.id.get.to!string~")");
 	
 	writeln("Memory Maps:");
 	writeln("ID   | start addr     | end addr       | perm | name                                               | offset");
@@ -66,7 +66,29 @@ int cmd_show_state(string[] args) {
 			).join(" | ")
 		);
 	}
-
+	writeln("");
+	
+	writeln("Open Files:");
+	writeln("Descriptor | Path                                                                        | position | flags");
+	writeln("-----------|-----------------------------------------------------------------------------|----------|------");
+	state.files.each!(file =>
+		writeln(
+			only(
+				leftJustify(file.descriptor.to!string, 10),
+				leftJustify(file.fileName, 75),
+				leftJustify(file.pos.to!string, 8),
+				leftJustify(file.flags.to!string, 6),
+			).join(" | ")
+		)
+	);
+	writeln("");
+	
+	writeln("Realtime clock: "~state.realtime.toString);
+	writeln("Monotonic clock: "~state.monotonic.toString);
+	writeln("");
+	
+	writeln("Window size: "~(state.windowSize.isNull ? "no window" : state.windowSize.get.toString));
+	
 	return 0;
 }
 
