@@ -217,6 +217,9 @@ private {
 	enum Schema = `
 		PRAGMA journal_mode = WAL;
 		PRAGMA foreign_keys = ON;
+		
+		CREATE TABLE IF NOT EXISTS Settings (name TEXT PRIMARY KEY NOT NULL, value NONE);
+		
 	` ~ [staticMap!(SchemaFor, AllModels)].join("\n");
 }
 
