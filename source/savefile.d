@@ -165,6 +165,7 @@ struct SaveStatesFile {
 }
 
 private {
+	// Gets a column declaration entry for a type (ex. `TEXT` or `INT NOT NULL`)
 	template SQLType(T) {
 		static if(is(T : Nullable!Args, Args...)) {
 			alias U = Args[0];
@@ -199,7 +200,8 @@ private {
 	}
 	
 	enum ChildFkField(Parent, Child) = Child.ReprTuple.fieldNames[staticIndexOf!(ForeignKey!Parent, Child.ReprTuple.Types)];
-
+	
+	// Generates a `CREATE TABLE` statement for a model.
 	template SchemaFor(T) {
 		alias ReprTuple = T.ReprTuple;
 		template ColumnDecl(string field) {

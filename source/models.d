@@ -1,4 +1,10 @@
-/// Data structures for info about a save state
+/++
+ + Model structures, saved in the savestate file.
+ +
+ + All models to generate schemas and queries for are collected in the $(D AllModels) tuple.
+ + Each model should have a `ReprTuple` alias, which is a flat tuple with named fields that
+ + closely corresponds to the rows in the savefile.
+++/
 module models;
 
 import std.algorithm;
@@ -21,13 +27,13 @@ if(is(T == struct)) {
 	return *(cast(const(T)*) (blob.ptr));
 }
 
-// ReprTuple annotation for unique columns
+/// ReprTuple annotation for unique columns
 struct ModelUnique(T) {
 	T _val;
 	alias _val this;
 }
 
-// ReprTuple annotation for foreign key columns
+/// ReprTuple annotation for foreign key columns
 struct ForeignKey(PointsTo) {
 	ulong id;
 	alias id this;
