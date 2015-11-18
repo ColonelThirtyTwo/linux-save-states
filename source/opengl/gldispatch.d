@@ -24,6 +24,9 @@ private {
 	}
 	
 	version(SkipOpenGLDispatch) {
+		// With the SkipOpenGLDispatch version, the receivers for the tracee OpenGL commands
+		// are not read or implemented. This speeds up compilation in exchange for a build that
+		// does not implement OpenGL. Used mostly for testing.
 		enum FuncInfoT[] Funcs = [];
 	} else {
 		enum Funcs = import("gl-list.csv")
@@ -50,18 +53,24 @@ private {
 }
 
 /++
- + Dispatches OpenGL commands from a pipe.
+ + Reads and dispatches OpenGL commands from a pipe.
  +
  + To simplify the tracer design and improve performance, GL commands are processed separately from the
- + regular commands. 
+ + regular commands.
+ + 
+ + Command parsing is done in a fiber, so that the full data for the command need not be completely available
+ + before returning.
 ++/
 final class GlDispatch {
-	
+	///
 	this(Pipe pipe) {
 		this.pipe = pipe;
 		this.fiber = new Fiber(&this.main);
 	}
 	
+	/++
+	 + Polls the command pipe, reading and executing commands until the pipe is drained.
+	++/
 	void poll() {
 		if(this.fiber.state != Fiber.State.TERM)
 			this.fiber.call();
@@ -154,11 +163,14 @@ private:
 			return handle_basic!(funcname)();
 		else static if(Info.type == "gen")
 			return handle_gen!(funcname)();
+		else static if(Info.type == "delete")
+			return handle_delete!(funcname)();
 		else
 			static assert(false, "Unrecognized GL function type: "~Info.type);
 	}
 	
 	void handle_basic(string funcname)() {
+		// Basic OpenGL functions
 		auto glFunc = __traits(getMember, gl, funcname);
 		alias ParamTypes = staticMap!(Unqual, ParameterTypeTuple!(typeof(glFunc)));
 		alias ParamStructTypes = staticMap!(ReplaceBufferWithSize, ParamTypes);
@@ -187,6 +199,7 @@ private:
 	}
 	
 	void handle_gen(string funcname)() {
+		// glGen* functions
 		auto glFunc = __traits(getMember, gl, funcname);
 		alias ParamTypes = staticMap!(Unqual, ParameterTypeTuple!(typeof(glFunc)));
 		static assert(is(ParamTypes[0] == GLsizei));
@@ -195,5 +208,17 @@ private:
 		auto bufs = new GLuint[read!GLsizei];
 		glFunc(cast(GLsizei)bufs.length, bufs.ptr);
 		write(bufs);
+	}
+	
+	void handle_delete(string funcname)() {
+		// glDelete* functions
+		auto glFunc = __traits(getMember, gl, funcname);
+		alias ParamTypes = staticMap!(Unqual, ParameterTypeTuple!(typeof(glFunc)));
+		static assert(is(ParamTypes[0] == GLsizei));
+		static assert(is(ParamTypes[1] == const(GLuint)*));
+		
+		auto count = read!GLsizei;
+		auto bufs = read!(GLuint*)(read!size_t)[0..count];
+		glFunc(cast(int) bufs.length, bufs.ptr);
 	}
 }

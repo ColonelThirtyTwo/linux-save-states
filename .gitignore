@@ -9,7 +9,7 @@
 *.exe
 *.exe.nolib
 *.sublime-*
-/savestates.db
+/savestates.db*
 /stop-self
 /linux-save-state
 /dub.userprefs

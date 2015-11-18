@@ -4,6 +4,7 @@
 	"license": "public domain",
 	"authors": ["Alex 'Colonel Thirty Two' Parrill"],
 	"targetType": "executable",
+	"mainSourceFile": "source/app.d",
 	"libs": ["sqlite3"],
 	"stringImportPaths": ["./resources/"],
 	"dependencies": {

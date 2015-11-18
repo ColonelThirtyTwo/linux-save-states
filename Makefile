@@ -8,7 +8,8 @@ TESTPROGS=\
 	test-progs/brk.exe \
 	test-progs/time.exe \
 	test-progs/test-command.exe \
-	test-progs/xclient.exe \
+	test-progs/gl/xclient.exe \
+	test-progs/gl/buffers.exe \
 
 OBJS = \
 	source-c/tracee/tracee.o \

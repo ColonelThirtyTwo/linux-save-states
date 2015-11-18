@@ -8,10 +8,7 @@
 
 extern void lss_pause(void);
 
-int main() {
-	printf("Pre-open\n");
-	lss_pause();
-	
+void createContext(Display** displayOut, Window* windowOut, GLXContext* contextOut) {
 	Display* display = XOpenDisplay(NULL);
 	assert(display != NULL);
 	
@@ -48,22 +45,14 @@ int main() {
 	XMapWindow(display, window);
 	glXMakeCurrent(display, window, context);
 	
-	printf("Window created\n");
-	glXSwapBuffers(display, window);
-	
-	glClearColor(0,0,0,0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	printf("Screen cleared\n");
-	glXSwapBuffers(display, window);
-	
+	*displayOut = display;
+	*windowOut = window;
+	*contextOut = context;
+}
+
+void destroyContext(Display* display, Window window, GLXContext context) {
 	glXMakeCurrent(display, None, NULL);
 	glXDestroyContext(display, context);
 	XDestroyWindow(display, window);
 	XCloseDisplay(display);
-	
-	printf("Window closed\n");
-	lss_pause();
-	
-	return 0;
 }

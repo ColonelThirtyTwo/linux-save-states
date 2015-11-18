@@ -158,12 +158,6 @@ class Param:
 	
 	def sizeof_c(self):
 		return "sizeof({0})".format(self.name)
-	
-	def declaration_d(self):
-		return self.declaration_c()
-	
-	def sizeof_d(self):
-		return "typeof({0}).sizeof".format(self.name)
 
 class ParamBuffer(Param):
 	def __init__(self, ctype, name, size, group=None):
@@ -204,10 +198,6 @@ class GLFunctionBase(metaclass=abc.ABCMeta):
 	
 	@abc.abstractmethod
 	def implementation_c(self):
-		pass
-	
-	@abc.abstractmethod
-	def implementation_d(self):
 		pass
 	
 	@property
@@ -259,36 +249,6 @@ class GLFunction(GLFunctionBase):
 		
 		out += "}\n"
 		return out
-	
-	def implementation_d(self):
-		out  = "void handle_{0}() {{\n".format(self.name)
-		out += "\tstruct _lss_params { align(1):\n"
-		
-		for param in self.params:
-			if isinstance(param, ParamBuffer):
-				out += "\t\tsize_t _lss_{0}_size;\n".format(param.name)
-			else:
-				decl = param.declaration_d()
-				out += "\t\t" + decl + ";\n"
-		
-		out += "\t};\n"
-		out += "\tauto params = read!_lss_params();\n"
-		
-		for param in self.bufferParams:
-			out += "\tauto _b_{0} = read!({1}[])(params._lss_{0}_size);\n"
-		
-		out += "\t"
-		if self.returnType != "void":
-			out += "auto ret = "
-		out += self.name + "("
-		out += ",".join(map(lambda p: "_b_"+p.name if isinstance(p, ParamBuffer) else "_lss_params."+p.name, self.params))
-		out += ");\n"
-		
-		if self.returnType != "void":
-			out += "\twrite(ret);\n"
-		
-		out += "}\n"
-		return out
 
 class GLFunctionAlias(GLFunctionBase):
 	type = "alias"
@@ -305,9 +265,6 @@ class GLFunctionAlias(GLFunctionBase):
 			self.paramsString_c(),
 			self.aliasOf
 		)
-	
-	def implementation_d(self):
-		return ""
 
 class GLFunctionPlaceholder(GLFunctionBase):
 	type = "placeholder"
@@ -319,9 +276,6 @@ class GLFunctionPlaceholder(GLFunctionBase):
 			self.name,
 			self.paramsString_c()
 		)
-	
-	def implementation_d(self):
-		return ""
 
 class GLFunctionGen(GLFunctionBase):
 	type = "gen"
@@ -349,23 +303,24 @@ class GLFunctionGen(GLFunctionBase):
 		for param in self.normalParams:
 			out += "\t_lss_params.{0} = {0};\n".format(param.name)
 		out += "\tqueueGlCommand(&_lss_params, sizeof(_lss_params));\n"
+		out += "\tflushGlBuffer();\n"
 		
 		for param in self.bufferParams:
 			out += "\treadData(TRACEE_GL_READ_FD, {0}, {1});\n".format(param.name, param.sizeof_c())
 		
 		out += "}\n"
 		return out
+
+class GLFunctionDelete(GLFunction):
+	type = "delete"
 	
-	def implementation_d(self):
-		out  = "void handle_{0}() {{\n".format(self.name)
-		out += "\tstruct _lss_params { align(1):\n"
-		
-		out += "\tauto num_elements = read!size_t();\n"
-		out += "\tauto buf = this.create!\"{0}\"(num_elements);\n".format(self.name)
-		out += "\twrite(buf);\n"
-		
-		out += "}\n"
-		return out
+	def __init__(self, funcId, name, returnType, params):
+		super().__init__(funcId, name, returnType, params)
+		assert returnType == "void", "{0} returns {1}".format(name, returnType)
+		assert len(params) == 2
+		assert params[0].ctype == "GLsizei"
+		assert isinstance(params[1], ParamBuffer)
+		assert params[1].ctype == "const GLuint *"
 
 def parseFunction(funcElem, funcId):
 	# Parse return type + name
@@ -396,6 +351,8 @@ def parseFunction(funcElem, funcId):
 		return GLFunctionPlaceholder(funcId, funcName, returnType, params)
 	elif funcName.startswith("glGen") and funcName != "glGenLists" and not funcName.startswith("glGenerate"):
 		return GLFunctionGen(funcId, funcName, returnType, params)
+	elif funcName.startswith("glDelete") and funcName not in ("glDeleteLists", "glDeleteShader", "glDeleteProgram"):
+		return GLFunctionDelete(funcId, funcName, returnType, params)
 	else:
 		return GLFunction(funcId, funcName, returnType, params)
 
@@ -406,7 +363,6 @@ if __name__ == "__main__":
 Reads the Khronos OpenGL XML spec from stdin and outputs C overrides for supported GL function.
 	""")
 	
-	#argparser.add_argument("out_d", metavar="out.d", type=argparse.FileType("w", encoding="utf-8"))
 	argparser.add_argument("out_c", metavar="out.c", type=argparse.FileType("w", encoding="utf-8"))
 	argparser.add_argument("out_list", metavar="out.csv", type=argparse.FileType("w", encoding="utf-8"))
 	
@@ -473,5 +429,4 @@ typedef enum {{
 	
 	for func in functions:
 		args.out_c.write(func.implementation_c())
-		#args.out_d.write(func.implementation_d())
 		args.out_list.write(func.name+","+func.type+","+str(func.id)+"\n")
