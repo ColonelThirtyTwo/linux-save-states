@@ -142,11 +142,15 @@ FUNCTION_PTR_OFFSET = set([
 	"glMultiDrawElementsIndirect",
 ])
 
+# Functions for which no wrapper should be generated, because they are implemented specially
 FUNCTION_BLACKLIST = set([
 	"glFlush",
 ]);
 
 class Param:
+	"""
+	OpenGL function parameter information.
+	"""
 	def __init__(self, ctype, name, group=None):
 		self.ctype = ctype.strip()
 		self.name = "ref_" if name == "ref" else name
@@ -160,6 +164,12 @@ class Param:
 		return "sizeof({0})".format(self.name)
 
 class ParamBuffer(Param):
+	"""
+	Subclass of Param for pointer types to variable-length arrays.
+	
+	For example, glBufferData takes a pointer to the buffer data, whose length is specified
+	by the size parameter.
+	"""
 	def __init__(self, ctype, name, size, group=None):
 		super().__init__(ctype, name, group)
 		self.size = size
@@ -181,6 +191,9 @@ class ParamBuffer(Param):
 		return typ.strip()
 
 class GLFunctionBase(metaclass=abc.ABCMeta):
+	"""
+	Base class for OpenGL functions.
+	"""
 	needsID = True
 	
 	def __init__(self, funcId, name, returnType, params):
@@ -213,6 +226,9 @@ class GLFunctionBase(metaclass=abc.ABCMeta):
 		return sum(map(lambda x: 1 if isinstance(x, ParamBuffer) else 0, self.params))
 
 class GLFunction(GLFunctionBase):
+	"""
+	Normal OpenGL functions that can be called without any special handling.
+	"""
 	type = "basic"
 	
 	def implementation_c(self):
@@ -251,6 +267,9 @@ class GLFunction(GLFunctionBase):
 		return out
 
 class GLFunctionAlias(GLFunctionBase):
+	"""
+	Functions that alias another function.
+	"""
 	type = "alias"
 	needsID = False
 	
@@ -267,6 +286,9 @@ class GLFunctionAlias(GLFunctionBase):
 		)
 
 class GLFunctionPlaceholder(GLFunctionBase):
+	"""
+	Stub for functions that LSS doesn't have an implementation for.
+	"""
 	type = "placeholder"
 	needsID = False
 	
@@ -278,6 +300,9 @@ class GLFunctionPlaceholder(GLFunctionBase):
 		)
 
 class GLFunctionGen(GLFunctionBase):
+	"""
+	glGen* functions.
+	"""
 	type = "gen"
 	
 	def __init__(self, funcId, name, returnType, params):
@@ -312,6 +337,9 @@ class GLFunctionGen(GLFunctionBase):
 		return out
 
 class GLFunctionDelete(GLFunction):
+	"""
+	glDelete* functions.
+	"""
 	type = "delete"
 	
 	def __init__(self, funcId, name, returnType, params):
@@ -323,6 +351,11 @@ class GLFunctionDelete(GLFunction):
 		assert params[1].ctype == "const GLuint *"
 
 def parseFunction(funcElem, funcId):
+	"""
+	Parses an XML element from the OpenGL spec, and returns a GLFunctionBase subclass
+	for that function.
+	"""
+	
 	# Parse return type + name
 	proto = funcElem.find("proto")
 	returnType = proto.find("ptype")
