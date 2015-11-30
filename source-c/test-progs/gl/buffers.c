@@ -15,6 +15,14 @@
 static const uint8_t testdata[256] = {1,2,3};
 
 int main() {
+	struct {
+		int cmd;
+		GLenum target;
+		GLintptr offset;
+		GLsizeiptr size;
+	} __attribute__((packed)) params;
+	printf("Params size: %zu\n", sizeof(params));
+	
 	Display* display;
 	Window window;
 	GLXContext context;
@@ -31,14 +39,16 @@ int main() {
 	glBindBuffer(GL_ARRAY_BUFFER, buf);
 	glBufferData(GL_ARRAY_BUFFER, 256, testdata, GL_STATIC_DRAW);
 	
-	//printf("Fetching data\n");
-	//uint8_t fetched[256];
-	//glGetBufferSubData(GL_ARRAY_BUFFER, 0, 256, fetched);
-	//for(int i=0; i<sizeof(testdata)/sizeof(testdata[0]); i++)
-	//	assert(fetched[i] == testdata[i]);
+	printf("Fetching data\n");
+	uint8_t fetched[256];
+	glGetBufferSubData(GL_ARRAY_BUFFER, 0, 256, fetched);
+	printf("Fetched, checking\n");
+	for(int i=0; i<sizeof(testdata)/sizeof(testdata[0]); i++)
+		assert(fetched[i] == testdata[i]);
 	
 	printf("Deleting.\n");
 	glDeleteBuffers(1, &buf);
+	glFlush();
 	
 	printf("Closing.\n");
 	destroyContext(display, window, context);

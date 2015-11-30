@@ -15,6 +15,7 @@ import procinfo;
 import procinfo.pipe;
 import models;
 import opengl.gldispatch;
+import opengl.idmaps;
 import bindings.libevent;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
@@ -37,6 +38,7 @@ final class ProcInfo {
 	private CommandDispatcher commandDispatcher;
 	private Events events;
 	private GlDispatch glDispatch;
+	private IdMaps idmaps;
 	Time time;
 	GlWindow window;
 	
@@ -52,7 +54,8 @@ final class ProcInfo {
 		events.addSignal(SIGCHLD);
 		
 		window = new GlWindow();
-		glDispatch = new GlDispatch(glPipe);
+		idmaps = new IdMaps();
+		glDispatch = new GlDispatch(glPipe, idmaps);
 	}
 	
 	/// Traced process PID.

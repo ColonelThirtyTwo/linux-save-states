@@ -70,7 +70,7 @@ private {
 			/* there is more to this structure, but it is private to Xlib */
 		}
 		
-		static assert(XDisplay.sizeof == 296); // size measured from a test C program
+		static assert(XDisplay.sizeof == 296); // Check that the XDisplay definition is correct. size measured from a test C program.
 		
 		alias glfwGetX11Display_t = XDisplay* function();
 	}
@@ -106,7 +106,9 @@ int x11EventsFd() @property {
 	return glfwGetX11Display().fd;
 }
 
-/// Creates and 
+/++
+ + Manages the OpenGL context and window.
+++/
 final class GlWindow {
 	private GLFWwindow* window;
 	
@@ -125,6 +127,8 @@ final class GlWindow {
 		
 		glfwMakeContextCurrent(window);
 		DerelictGL3.reload();
+		
+		//enforce(glfwExtensionSupported("EXT_direct_state_access".toStringz), "EXT_direct_state_access unsupported by this GPU.");
 		
 		glfwSetCursorPosCallback(window, &cursorCallback);
 	}

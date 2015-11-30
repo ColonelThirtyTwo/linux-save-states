@@ -58,7 +58,8 @@ in {
 			// Trace self
 			errnoEnforce(ptrace(PTraceRequest.PTRACE_TRACEME, 0, null, null) != -1);
 			// Execute
-			errnoEnforce(execvpe(args[0], args, env) != 0);
+			execvpe(args[0], args, env);
+			errnoEnforce(false);
 		} catch(Exception ex) {
 			// Don't run destructors in forked process; closing the database would be dangerous
 			import std.stdio : stderr;

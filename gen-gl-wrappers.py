@@ -145,6 +145,7 @@ FUNCTION_PTR_OFFSET = set([
 # Functions for which no wrapper should be generated, because they are implemented specially
 FUNCTION_BLACKLIST = set([
 	"glFlush",
+	"glGetBufferSubData",
 ]);
 
 class Param:

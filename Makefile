@@ -39,14 +39,9 @@ source-c/tracee/x/x.o: source-c/tracee/x/x.c
 
 test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l savestates
-test-progs/xclient.exe: source-c/test-progs/xclient.c libsavestates.so
-	gcc -std=gnu99 -Wall -L . -g -o $@ $+ -l X11 -l savestates
 
 resources/gl.xml:
 	wget -P resources/ -N https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
-
-#source/opengl/gl-generated%d source-c/tracee/gl/gl-generated%c resources/gl-list%txt: resources/gl.xml gen-gl-wrappers.py
-#	python3 gen-gl-wrappers.py source/opengl/gl-generated.d source-c/tracee/gl/gl-generated.c resources/gl-list.txt < resources/gl.xml
 
 source-c/tracee/gl/gl-generated%c resources/gl-list%csv: resources/gl.xml gen-gl-wrappers.py
 	python3 gen-gl-wrappers.py source-c/tracee/gl/gl-generated.c resources/gl-list.csv < resources/gl.xml

@@ -11,7 +11,8 @@
 		"d2sqlite3": "~>0.7.1",
 		"derelict-glfw3": "~>1.1.0",
 		"derelict-gl3": "~>1.0.13",
-		"libevent": "~>2.0.1+2.0.16"
+		"libevent": "~>2.0.1+2.0.16",
+		"cerealed": "~>0.6.3"
 	},
 	
 	"configurations": [
