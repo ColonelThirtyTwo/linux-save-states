@@ -106,13 +106,6 @@ private:
 			else
 				return this.handle!"%s"();
 		`.format(info.id, info.name, info.name, info.name)).join("\n"));
-		case 9001:
-			// glFlush
-			gl.glFlush();
-			return;
-		case 9002:
-			// glGetBufferSubData
-			return this.handle_func_glGetBufferSubData();
 		}
 	}
 	
@@ -171,13 +164,15 @@ private:
 			assert(false, "Received command for function "~funcname~" (a "~Info.type~" function)");
 		else static if(!is(typeof(__traits(getMember, gl, funcname)))) {
 			pragma(msg, "Warning: derelict does not expose function "~funcname~"; will not generate handler.");
-			assert(false, "Received command for function "~funcname~" (handler omitted)");
+			assert(false, "Received command for function "~funcname~" (handler was omitted during build)");
 		} else static if(Info.type == "basic")
 			return handle_basic!(funcname)();
 		else static if(Info.type == "gen")
 			return handle_gen!(funcname)();
 		else static if(Info.type == "delete")
 			return handle_delete!(funcname)();
+		else static if(Info.type == "special")
+			return __traits(getMember, this, "handle_func_"~funcname)();
 		else
 			static assert(false, "Unrecognized GL function type: "~Info.type);
 	}
@@ -242,6 +237,10 @@ private:
 		} else {
 			glFunc(cast(int) ids.length, ids.ptr);
 		}
+	}
+	
+	void handle_func_glFlush() {
+		gl.glFlush();
 	}
 	
 	void handle_func_glGetBufferSubData() {

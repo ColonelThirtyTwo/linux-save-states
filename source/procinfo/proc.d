@@ -103,6 +103,7 @@ final class ProcInfo {
 			);
 		}
 		assert(!continueWaiting, "Unexpectedly ran out of event sources");
+		glDispatch.poll();
 	}
 	
 	private void onTracerCommandAvailable() {

@@ -43,10 +43,10 @@ test-progs/%.exe: source-c/test-progs/%.c libsavestates.so
 resources/gl.xml:
 	wget -P resources/ -N https://cvs.khronos.org/svn/repos/ogl/trunk/doc/registry/public/api/gl.xml
 
-source-c/tracee/gl/gl-generated%c resources/gl-list%csv: resources/gl.xml gen-gl-wrappers.py
-	python3 gen-gl-wrappers.py source-c/tracee/gl/gl-generated.c resources/gl-list.csv < resources/gl.xml
+source-c/tracee/gl/gl-generated%c source-c/tracee/gl/gl-generated%h resources/gl-list%csv: resources/gl.xml gen-gl-wrappers.py
+	python3 gen-gl-wrappers.py source-c/tracee/gl/gl-generated.c source-c/tracee/gl/gl-generated.h resources/gl-list.csv < resources/gl.xml
 
 clean:
-	rm -f libsavestates.so $(OBJS) test-progs/*.exe resources/gl.xml
+	rm -f libsavestates.so $(OBJS) test-progs/*.exe resources/gl.xml source-c/tracee/gl/gl-generated.c source-c/tracee/gl/gl-generated.h resources/gl-list.csv
 
 .PHONY: all clean .FORCE
