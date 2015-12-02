@@ -163,5 +163,9 @@ EXPORT __GLXextFuncPtr glXGetProcAddressARB(const GLubyte* name) {
 
 EXPORT void glXSwapBuffers(Display* dpy, GLXDrawable drawable) {
 	flushGlBuffer();
+	
+	int cmd = (int) CMD_SWAPBUFFERS;
+	writeData(TRACEE_WRITE_FD, &cmd, sizeof(cmd));
+	
 	lss_pause();
 }

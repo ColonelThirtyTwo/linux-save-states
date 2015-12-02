@@ -11,7 +11,10 @@ import procinfo.commands;
 /++
  + Takes a command ID and runs the appropriate command.
  +
- + Commands are specified as private methods of the form `cmd_somecommand` (all lowercase).
+ + Commands are specified as private methods of the form `cmd_somecommand` (all lowercase), where
+ + `somecommand` is a value in the `app2wrappercmds` file in `resources/`.
+ +
+ + OpenGL commands are process separately, in `GLDispatch`.
 ++/
 struct CommandDispatcher {
 	void execute(App2WrapperCmd cmd, ProcInfo proc) {
@@ -47,5 +50,10 @@ private:
 	void cmd_resizewindow(ProcInfo proc) {
 		auto size = proc.read!(uint, uint)();
 		proc.window.resize(size[0], size[1]);
+	}
+	
+	void cmd_swapbuffers(ProcInfo proc) {
+		proc.pollGL();
+		proc.window.swapBuffers();
 	}
 }

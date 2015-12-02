@@ -175,4 +175,9 @@ final class GlWindow {
 	void pollEvents() {
 		glfwPollEvents();
 	}
+	
+	/// Swap window buffers
+	void swapBuffers() {
+		glfwSwapBuffers(this.window);
+	}
 }

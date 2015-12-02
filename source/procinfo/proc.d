@@ -103,7 +103,6 @@ final class ProcInfo {
 			);
 		}
 		assert(!continueWaiting, "Unexpectedly ran out of event sources");
-		glDispatch.poll();
 	}
 	
 	private void onTracerCommandAvailable() {
@@ -112,12 +111,16 @@ final class ProcInfo {
 			commandDispatcher.execute(cmd, this);
 	}
 	private void onGLCommandAvailable() {
-		glDispatch.poll();
+		this.pollGL();
 	}
 	private void onXEventAvailable() {
 		window.pollEvents();
 	}
 	
+	/// Poll any available OpenGL commands
+	void pollGL() {
+		glDispatch.poll();
+	}
 	
 	/// Saves the process state.
 	/// The process should be in a ptrace-stop.
