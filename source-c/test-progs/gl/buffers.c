@@ -12,17 +12,39 @@
 
 #include "common.c"
 
-static const uint8_t testdata[256] = {1,2,3};
+extern void lss_pause(void);
+
+static const uint8_t testdata1[256] = {1,2,3};
+static const uint8_t testdata2[512] = {6,7,8,9,1,2,3,4};
+
+static void check(GLuint buf, const uint8_t* data, size_t length) {
+	glBindBuffer(GL_ARRAY_BUFFER, buf);
+	glBufferData(GL_ARRAY_BUFFER, length, data, GL_STATIC_DRAW);
+	
+	glFlush();
+	lss_pause();
+	
+	glBindBuffer(GL_ARRAY_BUFFER, buf); // TODO: bindings are not currently saved
+	
+	printf("Fetching\n");
+	int bufSize;
+	glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &bufSize);
+	uint8_t fetched[length];
+	glGetBufferSubData(GL_ARRAY_BUFFER, 0, length, fetched);
+	
+	printf("Checking\n");
+	if(bufSize != length) {
+		printf("Size Mismatch: Expected %zd bytes, got %d\n", length, bufSize);
+	}
+	
+	for(int i=0; i<length; i++) {
+		if(fetched[i] != data[i]) {
+			printf("Mismatch: At index %d, expected %d, got %d\n", i, data[i], fetched[i]);
+		}
+	}
+}
 
 int main() {
-	struct {
-		int cmd;
-		GLenum target;
-		GLintptr offset;
-		GLsizeiptr size;
-	} __attribute__((packed)) params;
-	printf("Params size: %zu\n", sizeof(params));
-	
 	Display* display;
 	Window window;
 	GLXContext context;
@@ -35,16 +57,17 @@ int main() {
 	assert(buf != 0);
 	printf("id = %u\n", buf);
 	
-	printf("Uploading data\n");
-	glBindBuffer(GL_ARRAY_BUFFER, buf);
-	glBufferData(GL_ARRAY_BUFFER, 256, testdata, GL_STATIC_DRAW);
+	glFlush();
+	lss_pause();
 	
-	printf("Fetching data\n");
-	uint8_t fetched[256];
-	glGetBufferSubData(GL_ARRAY_BUFFER, 0, 256, fetched);
-	printf("Fetched, checking\n");
-	for(int i=0; i<sizeof(testdata)/sizeof(testdata[0]); i++)
-		assert(fetched[i] == testdata[i]);
+	// ----------------------------------------------------------
+	printf("[] Uploading test data 1\n");
+	check(buf, testdata1, sizeof(testdata1));
+	
+	printf("[] Uploading test data 2\n");
+	check(buf, testdata2, sizeof(testdata2));
+	
+	// ----------------------------------------------------------
 	
 	printf("Deleting.\n");
 	glDeleteBuffers(1, &buf);

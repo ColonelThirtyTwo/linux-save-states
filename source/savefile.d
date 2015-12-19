@@ -162,6 +162,11 @@ struct SaveStatesFile {
 			return ColumnData.init;
 		return results.front.front;
 	}
+	
+	/// Closes the savestate file.
+	void close() {
+		this.db.close();
+	}
 }
 
 private {

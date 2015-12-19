@@ -256,4 +256,17 @@ private:
 		gl.glGetBufferSubData(args.target, args.offset, args.size, buf.ptr);
 		write(buf);
 	}
+	
+	void handle_func_glGetBufferParameteriv() {
+		static align(1) struct Params {
+			align(1):
+			GLenum target;
+			GLenum param;
+		}
+		auto args = read!Params();
+		
+		GLint rv;
+		gl.glGetBufferParameteriv(args.target, args.param, &rv);
+		write(rv);
+	}
 }

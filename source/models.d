@@ -74,6 +74,9 @@ final class SaveState {
 	/// Window dimensions, or null if a window isn't opened.
 	Nullable!(Tuple!(uint, uint)) windowSize;
 	
+	/// Serialized OpenGL state.
+	const(ubyte)[] openGLState;
+	
 	/// Returns the location of the program break (see `brk (2)`)
 	ulong brk() @property const pure {
 		auto heapMap = maps.find!(x => x.name == "[heap]");
@@ -98,11 +101,13 @@ final class SaveState {
 		ulong, "monotonic_nsec",
 		Nullable!uint, "windowSize_x",
 		Nullable!uint, "windowSize_y",
+		const(ubyte)[], "openGLState",
 	);
 	ReprTuple toTuple() {
 		return ReprTuple(ModelUnique!string(name), registers.struct2blob, realtime.sec, realtime.nsec, monotonic.sec, monotonic.nsec,
 			windowSize.isNull ? Nullable!uint() : Nullable!uint(windowSize.get[0]),
 			windowSize.isNull ? Nullable!uint() : Nullable!uint(windowSize.get[1]),
+			openGLState,
 		);
 	}
 	static typeof(this) fromTuple(ulong thisId, ReprTuple tup) {
@@ -118,6 +123,7 @@ final class SaveState {
 			monotonic.sec = tup.monotonic_sec,
 			monotonic.nsec = tup.monotonic_nsec,
 			windowSize = tup.windowSize_x.isNull ? typeof(windowSize)() : typeof(windowSize)(tuple(tup.windowSize_x.get, tup.windowSize_y.get));
+			openGLState = tup.openGLState;
 		}
 		return state;
 	}

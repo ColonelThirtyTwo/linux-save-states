@@ -6,6 +6,7 @@ import std.algorithm;
 import std.range;
 import std.conv : to, ConvException;
 import std.string;
+import std.format;
 
 import d2sqlite3;
 
@@ -14,6 +15,9 @@ import commands;
 import savefile;
 import procinfo;
 import global;
+import opengl.state;
+
+private immutable string[] hexchars = iota(256).map!(byt => format("%02X", byt)).array.idup;
 
 @("")
 @("Lists all stored save states in chronological order.")
@@ -88,6 +92,19 @@ int cmd_show_state(string[] args) {
 	writeln("");
 	
 	writeln("Window size: "~(state.windowSize.isNull ? "no window" : state.windowSize.get.toString));
+	writeln("");
+	
+	auto glstate = GLState.deserialize(state.openGLState);
+	writeln("OpenGL Buffers:");
+	writeln("Client ID | Data Length | Hex");
+	writeln("----------|-------------|---------");
+	glstate.buffers.each!(buffer =>
+		writeln(only(
+			leftJustify(buffer.clientId.to!string, 9),
+			leftJustify(buffer.contents.length.to!string, 11),
+			buffer.contents.map!(byt => hexchars[byt]).take(50).join(" ") ~ (buffer.contents.length > 50 ? "..." : "")
+		).join(" | "))
+	);
 	
 	return 0;
 }

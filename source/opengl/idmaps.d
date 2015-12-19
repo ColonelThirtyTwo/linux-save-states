@@ -6,9 +6,11 @@ import std.array;
 import std.algorithm;
 import std.typecons;
 import std.conv;
+import std.traits;
 import std.experimental.logger;
 
 import derelict.opengl3.gl;
+import cerealed;
 
 import opengl.state;
 
@@ -34,6 +36,28 @@ final class IdMaps {
 		assert(bufferIDs.keys.equal(bufferIDs.values));
 	}
 	
+	// ----------------------------------------------------------------------
+	
+	/++
+	 + Downloads the entire OpenGL state.
+	++/
+	GLState downloadState() {
+		auto state = new GLState();
+		state.buffers = this.getBuffers().array;
+		return state;
+	}
+	
+	/++
+	 + Uploads the OpenGL state from a GLState object.
+	++/
+	void uploadState(GLState state) {
+		this.clearBuffers();
+		
+		state.buffers.each!(buffer => this.loadBuffer(buffer));
+	}
+	
+	// ----------------------------------------------------------------------
+	
 	/// Looks up a client buffer ID, returning a server ID.
 	Nullable!uint lookupBuffer(uint clientId) {
 		auto ptr = clientId in bufferIDs;
@@ -48,8 +72,10 @@ final class IdMaps {
 		return bufferIDs
 			.byPair
 			.map!(entry => (new Buffer(entry[0], entry[1])).download())
+			.takeExactly(bufferIDs.length) // byPair range doesn't have a length
 		;
 	}
+	static assert(hasLength!(ReturnType!getBuffers));
 	
 	/// Generates `count` new buffers. Returns their client IDs as a range.
 	auto newBuffers(uint count) {
@@ -76,7 +102,7 @@ final class IdMaps {
 		glGenBuffers(count, newIDs.ptr);
 		newIDs.each!(id => bufferIDs[id] = id);
 		
-		tracef("Generated %d new buffers: %s", count, newIDs.to!string);
+		tracef("Generated %d new GL buffers: %s", count, newIDs.to!string);
 		return newIDs;
 	}
 	
@@ -87,25 +113,29 @@ final class IdMaps {
 	 + The buffer should have a currently-unused `clientId` and no `serverId` (i.e. `serverId == 0`)
 	++/
 	void loadBuffer(Buffer buffer) {
-		assert(buffer.serverId == 0, "Tried to load already loaded buffer (id is "~buffer.serverId.to!string~")");
+		assert(buffer.serverId == 0, "Tried to load buffer that has a server ID (id is "~buffer.serverId.to!string~")");
 		assert(buffer.clientId != 0, "No clientId for buffer.");
 		assert(buffer.clientId !in bufferIDs, "clientId already in use.");
 		
 		// TODO: Proper ID mapping
 		buffer.serverId = buffer.clientId;
 		buffer.upload();
+		bufferIDs[buffer.serverId] = buffer.clientId;
+		
+		tracef("Loaded GL buffer %d", buffer.clientId);
 	}
 	
 	/// Deletes the passed-in buffers.
 	auto deleteBuffers(Range)(Range clientIDs)
 	if(isInputRange!Range && is(ElementType!Range : uint)) {
 		uint[] serverIDs = clientIDs.map!((id) {
+			assert(id in bufferIDs, "tried to delete nonexistant GL buffer: "~to!string(id));
 			auto serverID = bufferIDs[id];
 			bufferIDs.remove(id);
 			return serverID;
 		}).array;
 		glDeleteBuffers(cast(uint) serverIDs.length, serverIDs.ptr);
-		tracef("Deleted %d buffers: %s", serverIDs.length, serverIDs.to!string);
+		tracef("Deleted %d GL buffers: %s", serverIDs.length, serverIDs.to!string);
 	}
 	
 	/// Deletes all buffers.
@@ -113,8 +143,9 @@ final class IdMaps {
 		auto serverIDs = bufferIDs.byValue.array;
 		glDeleteBuffers(cast(uint) serverIDs.length, serverIDs.ptr);
 		bufferIDs = typeof(bufferIDs).init;
+		assert(bufferIDs.length == 0);
 		
-		trace("Deleted all buffers");
+		trace("Deleted all GL buffers");
 	}
 }
 

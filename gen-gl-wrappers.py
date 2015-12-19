@@ -147,6 +147,7 @@ FUNCTION_PTR_OFFSET = set([
 FUNCTION_SPECIAL_C = set([
 	"glFlush",
 	"glGetBufferSubData",
+	"glGetBufferParameteriv",
 ])
 
 class Param:
@@ -356,7 +357,7 @@ class GLFunctionSpecial(GLFunction):
 	"""
 	Functions that need special handling. No C wrapper.
 	"""
-	type = "custom"
+	type = "special"
 	
 	def implementation_c(self):
 		return ""

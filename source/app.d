@@ -29,7 +29,7 @@ version(unittest) {
 		}
 		
 		saveFile = SaveStatesFile("savestates.db");
-		//scope(exit) saveFile.close();
+		scope(exit) saveFile.close();
 		
 		switch(args[1]) {
 			foreach(member; allcmds.ProgCommands) {

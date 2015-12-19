@@ -20,14 +20,30 @@ EXPORT void glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, 
 		GLenum target;
 		GLintptr offset;
 		GLsizeiptr size;
-	} __attribute__((packed)) params;
-	
-	params.cmd = _LSS_GL_glGetBufferSubData;
-	params.target = target;
-	params.offset = offset;
-	params.size = size;
+	} __attribute__((packed)) params = {
+		_LSS_GL_glGetBufferSubData,
+		target,
+		offset,
+		size
+	};
 	
 	queueGlCommand(&params, sizeof(params));
 	flushGlBuffer();
 	readData(TRACEE_GL_READ_FD, data, size);
+}
+
+EXPORT void glGetBufferParameteriv(GLenum target, GLenum param, GLint* data) {
+	struct {
+		int cmd;
+		GLenum target;
+		GLenum param;
+	} __attribute__((packed)) params = {
+		_LSS_GL_glGetBufferParameteriv,
+		target,
+		param
+	};
+	
+	queueGlCommand(&params, sizeof(params));
+	flushGlBuffer();
+	readData(TRACEE_GL_READ_FD, data, sizeof(GLint));
 }

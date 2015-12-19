@@ -32,6 +32,7 @@ mixin template GLObject() {
 	/// OpenGL ID of the object as seen by the tracee.
 	GLuint clientId;
 	/// Actual OpenGL ID of the object.
+	@NoCereal
 	GLuint serverId;
 	
 	/// Retreives the object data from OpenGL and stores it in this object.
@@ -82,9 +83,32 @@ mixin template GLObject() {
 	}
 }
 
-/// Global state object.
-/// Has a `clientId` and `serverId`, but they are not used.
-/// References to other objects via IDs use the client IDs.
+/++
+ + Object that holds all the downloaded OpenGL state.
+++/
+final class GLState {
+	/// OpenGL buffers
+	Buffer[] buffers;
+	
+	/// Serializes the GL state to an array of bytes.
+	const(ubyte[]) serialize() {
+		auto cerializer = Cerealizer();
+		cerializer ~= this;
+		return cerializer.bytes;
+	}
+	
+	/// Deserializes a GL state from an array of bytes.
+	static GLState deserialize(const(ubyte)[] data) {
+		auto decerializer = Decerealizer(data);
+		return decerializer.value!GLState();
+	}
+}
+
+/++
+ + Global state object.
+ + Has a `clientId` and `serverId`, but they are not used.
+ + References to other objects via IDs use the client IDs.
+++/
 final class GlobalState {
 	mixin GLObject!();
 	
@@ -146,8 +170,9 @@ final class Buffer {
 
 unittest {
 	static immutable ubyte[] testdata = [1,2,3,4,5];
-	extern(System) @nogc nothrow
-	static void mock_glGetNamedBufferParameterivEXT(GLuint name, GLenum pname, int* params) {
+	
+	extern(System) @nogc nothrow static
+	void mock_glGetNamedBufferParameterivEXT(GLuint name, GLenum pname, int* params) {
 		assert(name == 123);
 		if(pname == GL_BUFFER_USAGE)
 			*params = GL_STATIC_DRAW;
@@ -156,7 +181,8 @@ unittest {
 		else
 			assert(false);
 	}
-	extern(System) @nogc nothrow static void mock_glGetNamedBufferSubDataEXT(GLuint name, GLintptr offset, GLsizeiptr size, void* data) {
+	extern(System) @nogc nothrow static
+	void mock_glGetNamedBufferSubDataEXT(GLuint name, GLintptr offset, GLsizeiptr size, void* data) {
 		assert(name == 123);
 		assert(offset == 0);
 		assert(size == testdata.length);
@@ -164,7 +190,8 @@ unittest {
 		auto dataslice = cast(ubyte[]) data[0..size];
 		dataslice[] = testdata[];
 	}
-	extern(System) @nogc nothrow static void mock_glNamedBufferDataEXT(GLuint name, GLsizeiptr size, const void* data, GLenum usage) {
+	extern(System) @nogc nothrow static
+	void mock_glNamedBufferDataEXT(GLuint name, GLsizeiptr size, const void* data, GLenum usage) {
 		assert(name == 123);
 		assert(size == testdata.length);
 		assert(usage == GL_STATIC_DRAW);

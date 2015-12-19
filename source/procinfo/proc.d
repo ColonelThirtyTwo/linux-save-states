@@ -16,6 +16,7 @@ import procinfo.pipe;
 import models;
 import opengl.gldispatch;
 import opengl.idmaps;
+import opengl.state;
 import bindings.libevent;
 
 /// Spawns a process in an environment suitable for TASing and returns a ProcInfo structure.
@@ -133,12 +134,13 @@ final class ProcInfo {
 		state.windowSize = window.isOpen ?
 				typeof(SaveState.windowSize)(window.size) :
 				typeof(SaveState.windowSize)();
+		state.openGLState = idmaps.downloadState().serialize();
 		return state;
 	}
 	
 	/// Loads a state from a SaveState object to the process' state.
-	/// The process should be in a ptrace-stop.
-	void loadState(in SaveState state) {
+	/// The process should be paused.
+	void loadState(const SaveState state) {
 		this.setBrk(state.brk);
 		writeMemoryMaps(pid, state.maps.filter!(x => x.contents.ptr != null));
 		tracer.setRegisters(state.registers);
@@ -155,6 +157,8 @@ final class ProcInfo {
 			else
 				window.open(state.windowSize);
 		}
+		
+		idmaps.uploadState(GLState.deserialize(state.openGLState));
 	}
 	
 	/// Sends a command through the command pipe to the tracee.
