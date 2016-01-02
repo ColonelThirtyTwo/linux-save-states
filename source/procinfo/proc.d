@@ -14,6 +14,7 @@ import bindings.libevent;
 import procinfo;
 import procinfo.pipe;
 import models;
+import opengl.window;
 import opengl.gldispatch;
 import opengl.idmaps;
 import opengl.state;

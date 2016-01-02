@@ -17,6 +17,7 @@ import models;
 import procinfo;
 import savefile;
 import libevent = bindings.libevent;
+import opengl.window;
 version(LineNoise) import bindings.linenoise;
 
 import allcmds = commands.all;

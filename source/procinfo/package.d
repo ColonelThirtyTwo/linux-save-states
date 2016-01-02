@@ -8,7 +8,6 @@ public import procinfo.tracer;
 public import procinfo.files;
 public import procinfo.time;
 public import procinfo.cmddispatch;
-public import procinfo.gl;
 public import procinfo.proc;
 
 

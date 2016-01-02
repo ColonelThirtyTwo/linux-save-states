@@ -1,5 +1,5 @@
 /// Contains OpenGL state.
-module procinfo.gl;
+module opengl.window;
 
 import std.stdio;
 import std.typecons;
