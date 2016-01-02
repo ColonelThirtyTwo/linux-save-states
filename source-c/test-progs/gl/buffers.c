@@ -17,7 +17,7 @@ extern void lss_pause(void);
 static const uint8_t testdata1[256] = {1,2,3};
 static const uint8_t testdata2[512] = {6,7,8,9,1,2,3,4};
 
-static void check(GLuint buf, const uint8_t* data, size_t length) {
+static void check(GLuint buf, const uint8_t* data, int length) {
 	glBindBuffer(GL_ARRAY_BUFFER, buf);
 	glBufferData(GL_ARRAY_BUFFER, length, data, GL_STATIC_DRAW);
 	
@@ -34,7 +34,7 @@ static void check(GLuint buf, const uint8_t* data, size_t length) {
 	
 	printf("Checking\n");
 	if(bufSize != length) {
-		printf("Size Mismatch: Expected %zd bytes, got %d\n", length, bufSize);
+		printf("Size Mismatch: Expected %d bytes, got %d\n", length, bufSize);
 	}
 	
 	for(int i=0; i<length; i++) {

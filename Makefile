@@ -20,8 +20,8 @@ OBJS = \
 	source-c/tracee/gl/gl.o \
 	source-c/tracee/gl/gl-generated.o \
 
-INJECTED_CFLAGS = -Wall -Os -g -nostdlib -c -I ./resources/ -I ./source-c/tracee -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
-TEST_CFLAGS = -Wall -g -std=gnu99 -L .
+INJECTED_CFLAGS = -Wall -Wextra -Wno-sign-compare -Os -g -nostdlib -c -I ./resources/ -I ./source-c/tracee -fvisibility=hidden -fno-unwind-tables -fno-asynchronous-unwind-tables -std=gnu99 -fPIC
+TEST_CFLAGS = -Wall -Wextra -g -std=gnu99 -L .
 
 all: libsavestates.so $(TESTPROGS)
 

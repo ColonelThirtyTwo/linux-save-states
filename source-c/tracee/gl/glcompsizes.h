@@ -24,14 +24,14 @@
 #define COMPSIZE_glMultiDrawElementsBaseVertex_indices(drawcount) drawcount
 #define COMPSIZE_glNamedBufferDataEXT(size) size
 #define COMPSIZE_glNamedBufferSubData(size) size
-#define COMPSIZE_glObjectLabel(label,length) (length < 0 ? COMPSIZE_string(label) : length)
-#define COMPSIZE_glObjectLabel(label,length) (length < 0 ? COMPSIZE_string(label) : length)
-#define COMPSIZE_glObjectPtrLabel(label,length) (length < 0 ? COMPSIZE_string(label) : length)
+#define COMPSIZE_glObjectLabel(label,length) (length < 0 ? COMPSIZE_string(label) : (size_t) length)
+#define COMPSIZE_glObjectLabel(label,length) (length < 0 ? COMPSIZE_string(label) : (size_t) length)
+#define COMPSIZE_glObjectPtrLabel(label,length) (length < 0 ? COMPSIZE_string(label) : (size_t) length)
 #define COMPSIZE_glPatchParameterfv(pname) (pname == GL_PATCH_DEFAULT_OUTER_LEVEL ? 4 : 2)
 #define COMPSIZE_glPointParameterfv(pname) (pname == GL_POINT_DISTANCE_ATTENUATION ? 3 : 1)
 #define COMPSIZE_glPointParameteriv(pname) (pname == GL_POINT_DISTANCE_ATTENUATION ? 3 : 1)
 #define COMPSIZE_glPointParameterxv(pname) (pname == GL_POINT_DISTANCE_ATTENUATION ? 3 : 1)
-#define COMPSIZE_glPushDebugGroup(label,length) (length < 0 ? COMPSIZE_string(label) : length)
+#define COMPSIZE_glPushDebugGroup(label,length) (length < 0 ? COMPSIZE_string(label) : (size_t) length)
 #define COMPSIZE_glReadPixels(format,type,width,height) 0 // TODO: properly implement
 #define COMPSIZE_glSamplerParameterfv(pname) (pname == GL_TEXTURE_BORDER_COLOR ? 4 : 0)
 #define COMPSIZE_glSamplerParameterIiv(pname) (pname == GL_TEXTURE_BORDER_COLOR ? 4 : 0)

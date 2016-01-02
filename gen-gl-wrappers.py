@@ -296,10 +296,11 @@ class GLFunctionPlaceholder(GLFunctionBase):
 	needsID = False
 	
 	def implementation_c(self):
-		return "EXPORT {0} {1}{2} {{ fail(\"Tracee called {1}, whose wrapper is unimplemented.\"); }}\n".format(
+		return "EXPORT {0} {1}{2} {{ \n\t{3}\n\tfail(\"Tracee called {1}, whose wrapper is unimplemented.\");\n}}\n".format(
 			self.returnType,
 			self.name,
-			self.paramsString_c()
+			self.paramsString_c(),
+			"\n\t".join("((void)({0}));".format(p.name) for p in self.params)
 		)
 
 class GLFunctionGen(GLFunctionBase):

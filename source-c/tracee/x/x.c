@@ -11,6 +11,10 @@
 #include <stddef.h>
 #include <dlfcn.h>
 
+// Lots of function parameters that are required to be there for ABI compatibility, but we don't care about.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 static void initData() {
 	#define FILL_ZERO(x) __builtin_memset(&(x), 0, sizeof(x))
 	FILL_ZERO(traceeData->x11.display);
@@ -169,3 +173,5 @@ EXPORT void glXSwapBuffers(Display* dpy, GLXDrawable drawable) {
 	
 	lss_pause();
 }
+
+#pragma GCC diagnostic pop

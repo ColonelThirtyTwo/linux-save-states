@@ -8,6 +8,10 @@
 
 #pragma GCC visibility push(default)
 
+// Lots of function parameters that are required to be there for ABI compatibility, but we don't care about.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 int clock_getres(clockid_t clk_id, struct timespec *res) {
 	if(res == NULL)
 		return 0;
@@ -61,3 +65,4 @@ int settimeofday(const struct timeval* tv, const struct timezone* tz) {
 }
 
 #pragma GCC visibility pop
+#pragma GCC diagnostic pop
