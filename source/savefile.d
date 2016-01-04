@@ -253,6 +253,7 @@ unittest {
 		realtime = Clock(123, 456);
 		monotonic = Clock(789, 12);
 		windowSize = Tuple!(uint, uint)(800, 600);
+		openGLState = [1,2,3];
 	}
 	file.save(state);
 	
