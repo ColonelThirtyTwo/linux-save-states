@@ -23,12 +23,13 @@ private extern(C) @nogc nothrow {
  +
  + This uses Linux pipes for communication.
 ++/
-struct Pipe {
+final class Pipe {
 	private int tracerReaderFd, tracerWriterFd;
 	private int traceeReaderFd, traceeWriterFd;
 	
-	/// Creates a new pipe.
-	/// If blocking is false, sets the tracer read pipe to non-blocking mode.
+	/++ Creates a new pipe, using linux pipes.
+	 + If blocking is false, sets the tracer read pipe to non-blocking mode.
+	++/
 	this(bool blocking) {
 		// Create pipes
 		int[2] tracer2traceePipe;
@@ -43,6 +44,17 @@ struct Pipe {
 		this.traceeReaderFd = tracer2traceePipe[0];
 		this.traceeWriterFd = tracee2tracerPipe[1];
 		
+		if(!blocking)
+			fcntl(tracerReaderFd, F_SETFL, O_NONBLOCK);
+	}
+	
+	/++
+	 + Wraps two existing file descriptors.
+	 + If blocking is false, sets the tracer read pipe to non-blocking mode.
+	++/
+	this(int readFD, int writeFD, bool blocking) {
+		this.tracerReaderFd = readFD;
+		this.tracerWriterFd = writeFD;
 		if(!blocking)
 			fcntl(tracerReaderFd, F_SETFL, O_NONBLOCK);
 	}

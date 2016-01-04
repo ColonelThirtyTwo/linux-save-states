@@ -52,7 +52,7 @@ struct CommandPipe {
 	/// Creates a command pipe.
 	static CommandPipe create() {
 		CommandPipe cmdpipe;
-		cmdpipe.pipe = Pipe(true);
+		cmdpipe.pipe = new Pipe(true);
 		
 		return cmdpipe;
 	}

@@ -24,7 +24,7 @@ import bindings.libevent;
 /// The process will start paused; use `info.tracer.resume` to resume it.
 ProcInfo spawn(string[] args) {
 	auto cmdpipe = CommandPipe.create();
-	auto glpipe = Pipe(false);
+	auto glpipe = new Pipe(false);
 	
 	auto tracer = spawnTraced(args, cmdpipe, glpipe);
 	return new ProcInfo(tracer, cmdpipe, glpipe);
